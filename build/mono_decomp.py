@@ -227,7 +227,7 @@ def build_godot_mono_decomp(
         else:
             lib_suffix = ".so"
 
-    src_suffixes = ["*.h", "*.cs", "*.csproj", "*.props", "*.targets", "*.pubxml"]
+    src_suffixes = ["*.h", "*.cs", "*.csproj", "*.props", "*.targets", "*.pubxml", "*.config"]
 
     def _builder_action(target, source, env):
         return godot_mono_builder(
