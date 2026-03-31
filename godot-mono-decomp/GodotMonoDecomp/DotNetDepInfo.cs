@@ -101,8 +101,8 @@ public class DotNetCoreDepInfo : IEquatable<DotNetCoreDepInfo>
 	public readonly string Name;
 	public readonly string Version;
 	public readonly string Type;
-	public readonly string Path;
-	public readonly string Sha512;
+	public readonly string? Path;
+	public readonly string? Sha512;
 	public readonly bool Serviceable;
 	public readonly DotNetCoreDepInfo[] deps;
 	public readonly RuntimeComponentInfo[] runtimeComponents;
@@ -143,8 +143,9 @@ public class DotNetCoreDepInfo : IEquatable<DotNetCoreDepInfo>
 		string version,
 		string type,
 		bool serviceable,
-		string path,
 		string sha512,
+		string? path,
+		string? hashPath,
 		DotNetCoreDepInfo[] deps,
 		RuntimeComponentInfo[] runtimeComponents,
 		NativeComponentInfo[] nativeComponents,
@@ -204,17 +205,19 @@ public class DotNetCoreDepInfo : IEquatable<DotNetCoreDepInfo>
 			Version = version;
 		}
 
-		var type = "runtimedll";
-		var serviceable = false;
-		var path = "";
-		var sha512 = "";
+		string type = "runtimedll";
+		bool serviceable = false;
+		string sha512 = "";
+		string? path = null;
+		string? hashPath = null;
 		var libraryBlob = blob["libraries"]?[Name + "/" + Version] as JObject;
 		if (libraryBlob != null)
 		{
 			type = libraryBlob["type"]?.ToString() ?? type;
 			serviceable = libraryBlob["serviceable"]?.Value<bool>() ?? serviceable;
-			path = libraryBlob["path"]?.ToString() ?? "";
 			sha512 = libraryBlob["sha512"]?.ToString() ?? "";
+			path = libraryBlob["path"]?.ToString();
+			hashPath = libraryBlob["hashPath"]?.ToString();
 		}
 
 		var runtimeComponents = new List<RuntimeComponentInfo>();
@@ -263,7 +266,7 @@ public class DotNetCoreDepInfo : IEquatable<DotNetCoreDepInfo>
 			}
 		}
 		var deps = getDeps(Name, Version, target, blob, _deps);
-		return new DotNetCoreDepInfo(Name, Version, type, serviceable, path, sha512, deps, runtimeComponents.ToArray(), nativeComponents.ToArray(), thisRuntimeComponent);
+		return new DotNetCoreDepInfo(Name, Version, type, serviceable, sha512, path, hashPath, deps, runtimeComponents.ToArray(), nativeComponents.ToArray(), thisRuntimeComponent);
 	}
 
 
