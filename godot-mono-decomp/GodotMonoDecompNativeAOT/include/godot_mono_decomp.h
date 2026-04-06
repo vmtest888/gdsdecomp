@@ -48,6 +48,9 @@ void* GodotMonoDecomp_CreateGodotModuleDecompiler(
 	bool verifyNuGetPackageIsFromNugetOrg,
 	bool copyOutOfTreeReferences,
 	bool createAdditionalProjectsForProjectReferences,
+	bool removeGeneratedJsonContextBody,
+	bool enableCollectionInitializerLifting,
+	bool emitILAnnotationComments,
 	LanguageVersion OverrideLanguageVersion
 );
 

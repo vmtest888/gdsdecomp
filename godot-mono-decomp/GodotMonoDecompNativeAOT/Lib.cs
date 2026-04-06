@@ -58,6 +58,9 @@ static public class Lib
 		bool verifyNuGetPackageIsFromNugetOrg,
 		bool copyOutOfTreeReferences,
 		bool createAdditionalProjectsForProjectReferences,
+		bool removeGeneratedJsonContextBody,
+		bool enableCollectionInitializerLifting,
+		bool emitILAnnotationComments,
 		int OverrideLanguageVersion
 	)
 	{
@@ -71,6 +74,9 @@ static public class Lib
 			VerifyNuGetPackageIsFromNugetOrg = verifyNuGetPackageIsFromNugetOrg,
 			CopyOutOfTreeReferences = copyOutOfTreeReferences,
 			CreateAdditionalProjectsForProjectReferences = createAdditionalProjectsForProjectReferences,
+			RemoveGeneratedJsonContextBody = removeGeneratedJsonContextBody,
+			EnableCollectionInitializerLifting = enableCollectionInitializerLifting,
+			EmitILAnnotationComments = emitILAnnotationComments,
 			OverrideLanguageVersion = OverrideLanguageVersion == 0 ? null : (LanguageVersion)OverrideLanguageVersion,
 			GodotVersionOverride = godotVersionOverrideStr == null ? null : GodotStuff.ParseGodotVersionFromString(godotVersionOverrideStr)
 		};

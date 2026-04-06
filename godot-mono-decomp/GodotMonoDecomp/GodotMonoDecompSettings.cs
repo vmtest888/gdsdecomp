@@ -83,6 +83,7 @@ public class GodotMonoDecompSettings : DecompilerSettings
 		settings.CreateAdditionalProjectsForProjectReferences = CreateAdditionalProjectsForProjectReferences;
 		settings.OverrideLanguageVersion = OverrideLanguageVersion;
 		settings.GodotVersionOverride = GodotVersionOverride;
+		settings.RemoveGeneratedJsonContextBody = RemoveGeneratedJsonContextBody;
 		settings.EnableCollectionInitializerLifting = EnableCollectionInitializerLifting;
 		settings.EmitILAnnotationComments = EmitILAnnotationComments;
 		return settings;

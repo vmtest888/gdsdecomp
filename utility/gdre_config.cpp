@@ -291,6 +291,21 @@ Vector<Ref<GDREConfigSetting>> GDREConfig::_init_default_settings() {
 				"Create additional projects for project references",
 				"If a project reference is detected, create an additional project and add it to the solution.",
 				true)),
+		memnew(GDREConfigSetting(
+				"CSharp/remove_generated_json_context_body",
+				"Remove generated Json context body",
+				"Remove the body of generated JsonSourceGeneration context classes.",
+				false)),
+		memnew(GDREConfigSetting(
+				"CSharp/enable_collection_initializer_lifting",
+				"Enable collection initializer lifting",
+				"Enable the LiftCollectionInitializers transform.\nIf disabled, the legacy RemoveBogusBaseConstructorCalls transform is used.",
+				true)),
+		memnew(GDREConfigSetting(
+				"CSharp/emit_il_annotation_comments",
+				"Emit IL annotation comments",
+				"Emit ILInstruction annotations as comments for statement/expression nodes.\nIntended for debug verification of annotation propagation.",
+				false)),
 		memnew(GDREConfigSetting_CSharpForceLanguageVersion()),
 		memnew(GDREConfigSetting(
 				"CSharp/compile_after_decompile",

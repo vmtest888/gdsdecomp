@@ -49,6 +49,9 @@ Error GodotMonoDecompWrapper::_load(const String &p_assembly_path, const Vector<
 			p_settings.VerifyNuGetPackageIsFromNugetOrg,
 			p_settings.CopyOutOfTreeReferences,
 			p_settings.CreateAdditionalProjectsForProjectReferences,
+			p_settings.RemoveGeneratedJsonContextBody,
+			p_settings.EnableCollectionInitializerLifting,
+			p_settings.EmitILAnnotationComments,
 			(LanguageVersion)p_settings.OverrideLanguageVersion);
 	delete[] originalProjectFiles_c_array;
 	if (new_decompiler_handle == nullptr) {
@@ -304,6 +307,9 @@ GodotMonoDecompWrapper::GodotMonoDecompSettings GodotMonoDecompWrapper::GodotMon
 	settings.VerifyNuGetPackageIsFromNugetOrg = GDREConfig::get_singleton()->get_setting("CSharp/verify_nuget_package_is_from_nuget_org", false);
 	settings.CopyOutOfTreeReferences = GDREConfig::get_singleton()->get_setting("CSharp/copy_out_of_tree_references", true);
 	settings.CreateAdditionalProjectsForProjectReferences = GDREConfig::get_singleton()->get_setting("CSharp/create_additional_projects_for_project_references", true);
+	settings.RemoveGeneratedJsonContextBody = GDREConfig::get_singleton()->get_setting("CSharp/remove_generated_json_context_body", false);
+	settings.EnableCollectionInitializerLifting = GDREConfig::get_singleton()->get_setting("CSharp/enable_collection_initializer_lifting", true);
+	settings.EmitILAnnotationComments = GDREConfig::get_singleton()->get_setting("CSharp/emit_il_annotation_comments", false);
 	settings.OverrideLanguageVersion = GDREConfig::get_singleton()->get_setting("CSharp/force_language_version", 0);
 	return settings;
 }
@@ -313,6 +319,9 @@ bool GodotMonoDecompWrapper::GodotMonoDecompSettings::operator==(const GodotMono
 			VerifyNuGetPackageIsFromNugetOrg == p_other.VerifyNuGetPackageIsFromNugetOrg &&
 			CopyOutOfTreeReferences == p_other.CopyOutOfTreeReferences &&
 			CreateAdditionalProjectsForProjectReferences == p_other.CreateAdditionalProjectsForProjectReferences &&
+			RemoveGeneratedJsonContextBody == p_other.RemoveGeneratedJsonContextBody &&
+			EnableCollectionInitializerLifting == p_other.EnableCollectionInitializerLifting &&
+			EmitILAnnotationComments == p_other.EmitILAnnotationComments &&
 			OverrideLanguageVersion == p_other.OverrideLanguageVersion &&
 			GodotVersionOverride == p_other.GodotVersionOverride;
 }

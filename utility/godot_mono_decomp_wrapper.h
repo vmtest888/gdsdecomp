@@ -29,6 +29,9 @@ public:
 		bool VerifyNuGetPackageIsFromNugetOrg = false;
 		bool CopyOutOfTreeReferences = true;
 		bool CreateAdditionalProjectsForProjectReferences = true;
+		bool RemoveGeneratedJsonContextBody = false;
+		bool EnableCollectionInitializerLifting = true;
+		bool EmitILAnnotationComments = false;
 		int OverrideLanguageVersion = 0;
 		String GodotVersionOverride;
 		static GodotMonoDecompSettings get_default_settings();
