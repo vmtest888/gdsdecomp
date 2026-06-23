@@ -37,10 +37,8 @@ BRANCHES_TO_MERGE=(
 	gltf-fix-skeleton-bone
 	gltf-fix-double-precision
 	gltf-fix-vertex-colors
-	ensure-bptc-textures
 	fix-v3-meshes
 	fix-clearcoat-gloss
-	fix-blend-export
 	gltf-mutex-all-document-extensions
 )
 
@@ -62,7 +60,7 @@ else
     sed_in_place() { sed -i "$@"; }
 fi
 
-# git push nikitalita $NEW_BRANCH_NAME --set-upstream
+git push nikitalita $NEW_BRANCH_NAME --set-upstream
 
 # change the branch name in .github/workflows/all_builds.yml and the README.md
 sed_in_place "s/GODOT_MAIN_SYNC_REF: .*/GODOT_MAIN_SYNC_REF: $NEW_BRANCH_NAME/" "$GDRE_PATH/.github/workflows/all_builds.yml"
