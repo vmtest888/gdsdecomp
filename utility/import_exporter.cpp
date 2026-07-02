@@ -2324,6 +2324,13 @@ String ImportExporterReport::get_report_string() {
 			report += info->get_path() + " ( importer: " + info->get_import_info()->get_importer() + ", type: " + info->get_import_info()->get_type() + ", format: " + unsupported_format_type + ") to " + info->get_new_source_path().get_file() + String("\n");
 		}
 	}
+	if (failed_scripts.size() > 0) {
+		report += "------\n";
+		report += "\nThe following scripts were not decompiled:" + String("\n");
+		for (const String &script : failed_scripts) {
+			report += script + String("\n");
+		}
+	}
 	if (failed.size() > 0) {
 		String failed_report = "------\n";
 		failed_report += "\nFailed conversions:" + String("\n");
