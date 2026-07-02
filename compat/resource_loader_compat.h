@@ -72,7 +72,7 @@ public:
 #endif
 
 	// only supports resource text and binary formats, not texture formats
-	static Error save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor);
+	static Error save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor, uint32_t p_flags = 0);
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {

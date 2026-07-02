@@ -2967,6 +2967,11 @@ Error ResourceFormatSaverXML::save(const Ref<Resource> &p_resource, const String
 	return saver.save(p_path, p_resource, p_flags);
 }
 
+Error ResourceFormatSaverXML::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_format, int ver_major, int ver_minor, uint32_t p_flags) {
+	p_flags = CompatFormatLoader::set_version_info_in_flags(p_flags, 0, ver_major, ver_minor);
+	return save(p_resource, p_path, p_flags);
+}
+
 bool ResourceFormatSaverXML::recognize(const Ref<Resource> &p_resource) const {
 	return true; // all recognized!
 }

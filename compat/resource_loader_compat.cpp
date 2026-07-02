@@ -682,11 +682,16 @@ bool ResourceCompatLoader::is_globally_available() {
 	return globally_available;
 }
 
-Error ResourceCompatLoader::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor) {
+Error ResourceCompatLoader::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor, uint32_t p_flags) {
 	String path = GDRESettings::get_singleton()->globalize_path(p_path);
 	ERR_FAIL_COND_V_MSG(ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
 	Error err = gdre::ensure_dir(path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not ensure directory for " + path);
+	String ext = path.get_extension().to_lower();
+	if (ext == "xml" || ext == "xscn" || ext == "xres" || (ver_major <= 2 && ext.begins_with("x") && ext_to_v2_types.has(ext.substr(1)))) {
+		ResourceFormatSaverXML saver;
+		return saver.save_custom(p_resource, path, 0, ver_major, ver_minor, p_flags);
+	}
 	if (path.get_extension() == "tres" || path.get_extension() == "tscn") {
 		int ver_format = ResourceFormatSaverCompatText::get_default_format_version(ver_major, ver_minor);
 		ResourceFormatSaverCompatText saver;
