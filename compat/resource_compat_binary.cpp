@@ -2437,15 +2437,11 @@ static String _resource_get_class(Ref<Resource> p_resource) {
 
 /* this is really only appropriate for saving fake-loaded resources right now; don't use it to save anything else*/
 Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
-	// Resource::seed_scene_unique_id(p_path.hash());
-	// get metadata from the resource
-
 	Error err;
 
 	path = get_local_path(p_path, p_resource);
 
 	set_save_settings(p_resource, p_flags);
-	ResourceUID::ID uid = res_uid;
 
 	Ref<FileAccess> f;
 	using_compression = using_compression || p_flags & ResourceSaver::FLAG_COMPRESS;
@@ -2464,6 +2460,22 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	}
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot create file '" + p_path + "'.");
+	return save_to_file(f, p_path, p_resource, p_flags);
+}
+
+Error ResourceFormatSaverCompatBinaryInstance::save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
+	path = get_local_path(p_path, p_resource);
+
+	set_save_settings(p_resource, p_flags);
+	return _save_to_file(p_f, p_path, p_resource, p_flags);
+}
+
+Error ResourceFormatSaverCompatBinaryInstance::_save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
+	// Resource::seed_scene_unique_id(p_path.hash());
+
+	Error err = OK;
+	Ref<FileAccess> f = p_f;
+	ResourceUID::ID uid = res_uid;
 
 	if (using_real_t_double) {
 		f->real_is_double = true;
