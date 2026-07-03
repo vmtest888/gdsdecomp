@@ -943,14 +943,23 @@ Error ImportInfov2::_load(const String &p_path) {
 			// if this doesn't match "filename.ext.converted.newext"
 			String base = spl[0];
 			String ext = spl.size() != 4 ? get_new_ext(old_ext) : spl[1];
-			if (p_path.contains(".optimized.")) {
-				if (old_ext == "scn") {
-					ext = "xml";
-				}
+			if (p_path.contains(".optimized.") && spl.size() != 4 && old_ext == "scn") {
+				ext = "xml";
 			}
 			source_file = p_path.get_base_dir().path_join(base + "." + ext);
 		}
-		if (!res_info->get_type().to_lower().contains("texture") && !res_info->get_type().to_lower().contains("sample")) {
+		String new_ext = source_file.get_extension().to_lower();
+		String type = res_info->get_type().to_lower();
+		static const HashSet<String> autoconverted_extensions = {
+			"xml",
+			"xres",
+			"xscn",
+			"tscn",
+			"tres",
+		};
+		if (new_ext == "po") {
+			importer = "translation";
+		} else if (autoconverted_extensions.has(new_ext) || (new_ext.begins_with("x") && (new_ext.length() == 4 || new_ext == "xxl" || new_ext == "xgt"))) {
 			importer = "autoconverted";
 		}
 	}
