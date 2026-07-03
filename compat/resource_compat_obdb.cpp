@@ -228,6 +228,33 @@ Error ResourceLoaderCompatOBDB::parse_property(int &r_name_idx, Variant &r_v) {
 	return parse_variant(r_v);
 }
 
+bool ResourceLoaderCompatOBDB::should_threaded_load() const {
+	return is_real_load() && ResourceCompatLoader::is_globally_available() && load_type == ResourceCompatLoader::get_default_load_type();
+}
+
+Ref<Resource> ResourceLoaderCompatOBDB::do_ext_load(const String &p_path, const String &p_type_hint) {
+	if (resource_cache.has(p_path)) {
+		return resource_cache[p_path];
+	}
+	Error err = OK;
+	ERR_FAIL_COND_V_MSG(is_real_load() && p_path == local_path, Ref<Resource>(), "Circular dependency detected: " + p_path);
+	Ref<Resource> res;
+	if (!should_threaded_load()) {
+		if (is_real_load()) {
+			res = ResourceCompatLoader::custom_load(p_path, p_type_hint, load_type, &err, use_sub_threads, cache_mode_for_external);
+		} else {
+			res = CompatFormatLoader::create_missing_external_resource(p_path, p_type_hint, ResourceUID::INVALID_ID);
+		}
+	} else { // real load
+		Ref<ResourceLoader::LoadToken> load_token = ResourceLoader::_load_start(p_path, p_type_hint, use_sub_threads ? ResourceLoader::LOAD_THREAD_DISTRIBUTE : ResourceLoader::LOAD_THREAD_FROM_CURRENT, cache_mode_for_external);
+		if (load_token.is_valid()) {
+			res = ResourceLoader::_load_complete(*load_token.ptr(), &err);
+		}
+	}
+	resource_cache[p_path] = res;
+	return res;
+}
+
 Error ResourceLoaderCompatOBDB::parse_variant(Variant &r_v) {
 	uint32_t type = f->get_32();
 
@@ -382,16 +409,7 @@ Error ResourceLoaderCompatOBDB::parse_variant(Variant &r_v) {
 					if (!path.contains("://") && path.is_relative_path()) {
 						path = GDRESettings::get_singleton()->localize_path(res_path.get_base_dir().path_join(path));
 					}
-					if (remaps.find(path)) {
-						path = remaps[path];
-					}
-					Error err = OK;
-					Ref<Resource> res;
-					if (!is_real_load()) {
-						res = CompatFormatLoader::create_missing_external_resource(path, exttype, ResourceUID::INVALID_ID);
-					} else {
-						res = ResourceCompatLoader::custom_load(path, exttype, load_type, &err, use_sub_threads, cache_mode_for_external);
-					}
+					Ref<Resource> res = do_ext_load(path, exttype);
 					if (res.is_null()) {
 						WARN_PRINT(vformat("Couldn't load resource: %s.", path));
 					}
@@ -625,7 +643,12 @@ bool ResourceLoaderCompatOBDB::_index_sections() {
 			}
 			ir.body_offset = f->get_position();
 			ir.end_offset = section_end;
-			internal_resources.push_back(ir);
+			// dedupe external resources with the same path
+			if (ir.is_local_id || !internal_resources.has(ir)) {
+				internal_resources.push_back(ir);
+			} else {
+				print_line(vformat("Deduplicated external resource: %s", ir.path));
+			}
 		} else if (section == SECTION_OBJECT) {
 			SceneNodeEntry e;
 			e.kind = SECTION_OBJECT;
@@ -878,22 +901,6 @@ Error ResourceLoaderCompatOBDB::_load_internal_resources_phase() {
 			res = Ref<Resource>(r);
 		}
 
-		if (r) {
-			if (!path.is_empty()) {
-				if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE) {
-					r->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
-				} else {
-					r->set_path_cache(path);
-				}
-			}
-			r->set_scene_unique_id(id);
-		} else if (converter.is_null() && !is_real_load()) {
-			if (!path.is_empty()) {
-				res->set_path_cache(path);
-			}
-			res->set_scene_unique_id(id);
-		}
-
 		internal_index_cache[path] = res;
 
 		Object *target = r ? (Object *)r : (Object *)missing_resource.ptr();
@@ -920,19 +927,30 @@ Error ResourceLoaderCompatOBDB::_load_internal_resources_phase() {
 						if (!ResourceInfo::resource_has_info(res)) {
 							compat->set_on_resource(res);
 						}
-						if (!path.is_empty()) {
-							if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && is_real_load()) {
-								res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE);
-							} else {
-								res->set_path_cache(path);
-							}
-						}
-						res->set_scene_unique_id(id);
 						internal_index_cache[path] = res;
 					}
 				}
 			}
 		}
+		if (!path.is_empty()) {
+			if (cache_mode != ResourceFormatLoader::CACHE_MODE_IGNORE && is_real_load()) {
+				if (cache_mode == ResourceFormatLoader::CACHE_MODE_REUSE) {
+					// someone managed to load it before us; let's use the cached version
+					Ref<Resource> cached = ResourceCache::get_ref(path);
+					if (cached.is_valid()) {
+						res = cached;
+						r = res.ptr();
+					} else {
+						res->set_path(path, false);
+					}
+				} else {
+					res->set_path(path, cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE || cache_mode == ResourceFormatLoader::CACHE_MODE_REPLACE_DEEP);
+				}
+			} else {
+				res->set_path_cache(path);
+			}
+		}
+		res->set_scene_unique_id(id);
 
 		if (!missing_resource_properties.is_empty()) {
 			res->set_meta(META_MISSING_RESOURCES, missing_resource_properties);
@@ -942,7 +960,7 @@ Error ResourceLoaderCompatOBDB::_load_internal_resources_phase() {
 		res->set_edited(false);
 #endif
 		set_internal_resource_compat_meta(path, id, t, res);
-		resource_cache.push_back(res);
+		resource_cache[path] = res;
 	}
 
 	return OK;
@@ -1181,13 +1199,7 @@ Error ResourceLoaderCompatOBDB::_build_packed_scene() {
 		int instance_field;
 		if (p.kind == SECTION_META_OBJECT && !p.instance_path.is_empty()) {
 			// Instance node (no real Object data, only meta + overrides).
-			Ref<Resource> ext;
-			Error eerr = OK;
-			if (!is_real_load()) {
-				ext = CompatFormatLoader::create_missing_external_resource(p.instance_path, "PackedScene", ResourceUID::INVALID_ID);
-			} else {
-				ext = ResourceCompatLoader::custom_load(p.instance_path, "PackedScene", load_type, &eerr, use_sub_threads, cache_mode_for_external);
-			}
+			Ref<Resource> ext = do_ext_load(p.instance_path, "PackedScene");
 			type_idx = (int)SceneState::TYPE_INSTANTIATED;
 			instance_field = intern_variant(ext);
 		} else {

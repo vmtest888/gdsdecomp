@@ -28,6 +28,12 @@ private:
 		bool is_local_id = true;
 		uint64_t body_offset = 0; // Where properties begin (after type/path).
 		uint64_t end_offset = 0; // First byte after the section.
+		bool operator==(const InternalResource &p_other) const {
+			return type == p_other.type && path == p_other.path && is_local_id == p_other.is_local_id && body_offset == p_other.body_offset && end_offset == p_other.end_offset;
+		}
+		bool operator!=(const InternalResource &p_other) const {
+			return !(*this == p_other);
+		}
 	};
 
 	struct SceneNodeEntry {
@@ -66,10 +72,8 @@ private:
 
 	Vector<InternalResource> internal_resources;
 	HashMap<String, Ref<Resource>> internal_index_cache;
-	List<Ref<Resource>> resource_cache;
+	HashMap<String, Ref<Resource>> resource_cache;
 	Vector<SceneNodeEntry> scene_nodes;
-
-	HashMap<String, String> remaps;
 
 	Ref<Resource> resource;
 	int packed_scene_version = -1;
@@ -94,6 +98,8 @@ private:
 
 	bool is_real_load() const { return load_type == ResourceInfo::REAL_LOAD || load_type == ResourceInfo::GLTF_LOAD; }
 
+	bool should_threaded_load() const;
+	Ref<Resource> do_ext_load(const String &p_path, const String &p_type_hint);
 	// Recognize-only header read; populates `type` and `is_scene_mode`.
 	bool _read_header(Ref<FileAccess> p_f, bool p_load_strings);
 
@@ -106,7 +112,6 @@ public:
 	String recognize(Ref<FileAccess> p_f);
 	void get_dependencies(Ref<FileAccess> p_f, List<String> *p_dependencies, bool p_add_types);
 
-	void set_remaps(const HashMap<String, String> &p_remaps) { remaps = p_remaps; }
 	void set_translation_remapped(bool p_remapped) { translation_remapped = p_remapped; }
 
 	ResourceLoaderCompatOBDB() {}
