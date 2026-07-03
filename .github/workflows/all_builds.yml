@@ -117,7 +117,7 @@ jobs:
             bin: ./bin/godot.linuxbsd.editor.x86_64
 
           - name: "🍎 macOS Editor"
-            os: "macos-latest"
+            os: "macos-26"
             id: macos-editor
             platform: macos
             target: editor
@@ -127,7 +127,7 @@ jobs:
             bin: ./bin/godot.macos.editor.arm64
 
           - name: "🍎 macOS Template Release"
-            os: "macos-latest"
+            os: "macos-26"
             id: macos-template
             platform: macos
             target: template_release
@@ -158,10 +158,6 @@ jobs:
         shell: bash
         run: |
           cp -R modules/gdsdecomp/.github/actions/* .github/actions/
-
-      - name: Select Xcode 16
-        if: matrix.platform == 'macos'
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
       - name: Restore Godot build cache
         uses: ./.github/actions/godot-cache-restore
