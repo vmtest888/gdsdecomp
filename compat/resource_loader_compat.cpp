@@ -684,7 +684,7 @@ bool ResourceCompatLoader::is_globally_available() {
 
 Error ResourceCompatLoader::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor, uint32_t p_flags) {
 	String path = GDRESettings::get_singleton()->globalize_path(p_path);
-	ERR_FAIL_COND_V_MSG(ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	ERR_FAIL_COND_V_MSG(ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
 	Error err = gdre::ensure_dir(path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not ensure directory for " + path);
 	String ext = path.get_extension().to_lower();

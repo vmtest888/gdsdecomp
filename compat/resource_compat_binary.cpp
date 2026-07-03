@@ -2472,7 +2472,6 @@ Error ResourceFormatSaverCompatBinaryInstance::save_to_file(const Ref<FileAccess
 Error ResourceFormatSaverCompatBinaryInstance::_save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
 	// Resource::seed_scene_unique_id(p_path.hash());
 
-	Error err = OK;
 	Ref<FileAccess> f = p_f;
 	ResourceUID::ID uid = res_uid;
 
@@ -3536,9 +3535,6 @@ Error ResourceFormatSaverCompatBinaryInstance::set_save_settings(const Ref<Resou
 			ver_major = compat->ver_major;
 			ver_minor = compat->ver_minor;
 		}
-		if (ver_major == 0) {
-			WARN_PRINT("Resource has a major version of 0, this is not supported.");
-		}
 		String format = compat->resource_format;
 		script_class = compat->script_class;
 		using_script_class = compat->using_script_class();
@@ -3654,7 +3650,7 @@ int ResourceFormatSaverCompatBinary::get_ver_minor_from_format_version(int ver_f
 }
 
 Error ResourceFormatSaverCompatBinary::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_format, int ver_major, int ver_minor, uint32_t p_flags) {
-	ERR_FAIL_COND_V_MSG(ver_format <= 0 || ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	ERR_FAIL_COND_V_MSG(ver_format < 0 || ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
 
 	p_flags = CompatFormatLoader::set_version_info_in_flags(p_flags, ver_format, ver_major, ver_minor);
 	return ResourceFormatSaverCompatBinary::save(p_resource, p_path, p_flags);
