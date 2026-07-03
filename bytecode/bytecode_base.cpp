@@ -668,15 +668,12 @@ Error GDScriptDecomp::decompile_buffer(Vector<uint8_t> p_buffer) {
 		if (curr_line <= prev_line) {
 			curr_line = prev_line + 1; // force new line
 		}
-		bool was_escaped = false;
 		while (curr_line > prev_line) {
 			if (curr_token != G_TK_NEWLINE && bytecode_version < GDSCRIPT_2_0_VERSION) {
 				script_text += "\\"; // line continuation
-				was_escaped = true;
 			} else if (bytecode_version >= GDSCRIPT_2_0_VERSION && tokens[i].start_line != tokens[i].end_line) {
 				if (!first_line || (!gdre::remove_whitespace(line).is_empty())) {
 					script_text += "\\";
-					was_escaped = true;
 				}
 			}
 			script_text += "\n";
