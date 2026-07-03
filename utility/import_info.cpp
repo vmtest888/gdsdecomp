@@ -545,11 +545,11 @@ void ImportInfoModern::set_metadata_prop(Dictionary r_dict) {
 	dirty = true;
 }
 
-Variant ImportInfoModern::get_param(const String &p_key) const {
+Variant ImportInfoModern::get_param(const String &p_key, const Variant &p_default) const {
 	if (!cf->has_section_key("params", p_key)) {
-		return Variant();
+		return p_default;
 	}
-	return cf->get_value("params", p_key);
+	return cf->get_value("params", p_key, p_default);
 }
 
 void ImportInfoModern::set_param(const String &p_key, const Variant &p_val) {
@@ -562,11 +562,11 @@ bool ImportInfoModern::has_param(const String &p_key) const {
 	return cf->has_section_key("params", p_key);
 }
 
-Variant ImportInfoModern::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfoModern::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (!cf->has_section_key(p_section, p_prop)) {
-		return Variant();
+		return p_default;
 	}
-	return cf->get_value(p_section, p_prop);
+	return cf->get_value(p_section, p_prop, p_default);
 }
 
 void ImportInfoModern::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
@@ -1077,8 +1077,8 @@ void ImportInfov2::set_additional_sources(const Vector<String> &p_add_sources) {
 	dirty = true;
 }
 
-Variant ImportInfov2::get_param(const String &p_key) const {
-	return v2metadata->get_option(p_key);
+Variant ImportInfov2::get_param(const String &p_key, const Variant &p_default) const {
+	return v2metadata->get_option(p_key, p_default);
 }
 
 void ImportInfov2::set_param(const String &p_key, const Variant &p_val) {
@@ -1090,12 +1090,12 @@ bool ImportInfov2::has_param(const String &p_key) const {
 	return v2metadata->has_option(p_key);
 }
 
-Variant ImportInfov2::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfov2::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (p_section == "params" || p_section == "options") {
-		return v2metadata->get_option(p_prop);
+		return v2metadata->get_option(p_prop, p_default);
 	}
 	//TODO: others?
-	return Variant();
+	return p_default;
 }
 
 void ImportInfov2::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
@@ -1328,11 +1328,11 @@ void ImportInfo::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_metadata_prop", "metadata_prop"), &ImportInfo::set_metadata_prop);
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "metadata_prop"), "set_metadata_prop", "get_metadata_prop");
 
-	ClassDB::bind_method(D_METHOD("get_param", "key"), &ImportInfo::get_param);
+	ClassDB::bind_method(D_METHOD("get_param", "key", "default"), &ImportInfo::get_param, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("set_param", "key", "value"), &ImportInfo::set_param);
 	ClassDB::bind_method(D_METHOD("has_param", "key"), &ImportInfo::has_param);
 
-	ClassDB::bind_method(D_METHOD("get_iinfo_val", "p_section", "p_prop"), &ImportInfo::get_iinfo_val);
+	ClassDB::bind_method(D_METHOD("get_iinfo_val", "p_section", "p_prop", "p_default"), &ImportInfo::get_iinfo_val, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("set_iinfo_val", "p_section", "p_prop", "p_val"), &ImportInfo::set_iinfo_val);
 
 	ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
@@ -1607,13 +1607,13 @@ String ImportInfoGDExt::get_compatibility_maximum() const {
 // virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
 // virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
-Variant ImportInfoGDExt::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfoGDExt::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (cf->has_section(p_section)) {
 		if (cf->has_section_key(p_section, p_prop)) {
-			return cf->get_value(p_section, p_prop, "");
+			return cf->get_value(p_section, p_prop, p_default);
 		}
 	}
-	return Variant();
+	return p_default;
 }
 
 void ImportInfoGDExt::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {

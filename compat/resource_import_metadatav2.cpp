@@ -63,9 +63,10 @@ bool ResourceImportMetadatav2::has_option(const String &p_key) const {
 	return options.has(p_key);
 }
 
-Variant ResourceImportMetadatav2::get_option(const String &p_key) const {
-	ERR_FAIL_COND_V(!options.has(p_key), Variant());
-
+Variant ResourceImportMetadatav2::get_option(const String &p_key, const Variant &p_default) const {
+	if (!options.has(p_key)) {
+		return p_default;
+	}
 	return options[p_key];
 }
 
@@ -121,7 +122,7 @@ void ResourceImportMetadatav2::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_source", "idx"), &ResourceImportMetadatav2::remove_source);
 	ClassDB::bind_method(D_METHOD("get_source_count"), &ResourceImportMetadatav2::get_source_count);
 	ClassDB::bind_method(D_METHOD("set_option", "key", "value"), &ResourceImportMetadatav2::set_option);
-	ClassDB::bind_method(D_METHOD("get_option", "key"), &ResourceImportMetadatav2::get_option);
+	ClassDB::bind_method(D_METHOD("get_option", "key", "default"), &ResourceImportMetadatav2::get_option, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("get_options"), &ResourceImportMetadatav2::_get_options);
 	ClassDB::bind_method(D_METHOD("to_json"), &ResourceImportMetadatav2::to_json);
 	ClassDB::bind_static_method(get_class_static(), D_METHOD("from_json", "dict"), &ResourceImportMetadatav2::from_json);

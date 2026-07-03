@@ -157,11 +157,11 @@ public:
 	virtual Dictionary get_metadata_prop() const { return Dictionary(); }
 	virtual void set_metadata_prop(Dictionary r_dict) { return; }
 
-	virtual Variant get_param(const String &p_key) const = 0;
+	virtual Variant get_param(const String &p_key, const Variant &p_default = Variant()) const = 0;
 	virtual void set_param(const String &p_key, const Variant &p_val) = 0;
 	virtual bool has_param(const String &p_key) const = 0;
 
-	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const = 0;
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default = Variant()) const = 0;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) = 0;
 
 	// gets the parameters used to import the resource.
@@ -234,11 +234,11 @@ public:
 	virtual Dictionary get_metadata_prop() const override;
 	virtual void set_metadata_prop(Dictionary r_dict) override;
 
-	virtual Variant get_param(const String &p_key) const override;
+	virtual Variant get_param(const String &p_key, const Variant &p_default = Variant()) const override;
 	virtual void set_param(const String &p_key, const Variant &p_val) override;
 	virtual bool has_param(const String &p_key) const override;
 
-	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default = Variant()) const override;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
 	// gets the parameters used to import the resource.
@@ -292,11 +292,11 @@ public:
 	virtual Vector<String> get_dest_files() const override;
 	virtual void set_dest_files(const Vector<String> p_dest_files) override;
 
-	virtual Variant get_param(const String &p_key) const override;
+	virtual Variant get_param(const String &p_key, const Variant &p_default = Variant()) const override;
 	virtual void set_param(const String &p_key, const Variant &p_val) override;
 	virtual bool has_param(const String &p_key) const override;
 
-	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default = Variant()) const override;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
 	// gets the parameters used to import the resource.
@@ -349,11 +349,11 @@ public:
 	virtual Vector<String> get_dest_files() const override { return dest_files; }
 	virtual void set_dest_files(const Vector<String> p_dest_files) override { dest_files = p_dest_files; }
 
-	virtual Variant get_param(const String &p_key) const override { return Variant(); }
+	virtual Variant get_param(const String &p_key, const Variant &p_default = Variant()) const override { return p_default; }
 	virtual void set_param(const String &p_key, const Variant &p_val) override { return; }
 	virtual bool has_param(const String &p_key) const override { return false; }
 
-	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override { return Variant(); }
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default = Variant()) const override { return p_default; }
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override { return; }
 
 	virtual Dictionary get_params() const override { return Dictionary(); }
@@ -395,7 +395,7 @@ protected:
 
 public:
 	Error load_from_string(const String &p_fakepath, const String &p_string);
-	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
+	virtual Variant get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default = Variant()) const override;
 	virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
 	Vector<SharedObject> get_libaries(bool fix_rel_paths = true) const;

@@ -35,7 +35,7 @@ public:
 	void remove_source(int p_idx);
 	int get_source_count() const;
 	void set_option(const String &p_key, const Variant &p_value);
-	Variant get_option(const String &p_key) const;
+	Variant get_option(const String &p_key, const Variant &p_default = Variant()) const;
 	bool has_option(const String &p_key) const;
 	void get_options(List<String> *r_options) const;
 	Dictionary get_options_as_dictionary() const;
