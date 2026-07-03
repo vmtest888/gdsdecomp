@@ -176,6 +176,8 @@ private:
 
 	void _get_app_version();
 
+	Error _load_obdb_resources();
+
 protected:
 	static void _bind_methods();
 	Error _add_pack(const String &p_path);

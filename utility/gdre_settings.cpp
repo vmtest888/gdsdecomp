@@ -20,6 +20,7 @@
 #include "plugin_manager/plugin_manager.h"
 #include "utility/app_version_getter.h"
 #include "utility/common.h"
+#include "utility/file_access_buffer.h"
 #include "utility/file_access_gdre.h"
 #include "utility/gdre_logger.h"
 #include "utility/gdre_packed_source.h"
@@ -804,6 +805,14 @@ Error GDRESettings::_project_post_load(bool initial_load, const String &csharp_a
 				String setting = remap_section.begin()->key;
 				v2_remap_setting = "remap/" + setting;
 			}
+		}
+	}
+
+	// Pre 1.x Godot exported `OBDB` format resources which packed in all referenced external resources; we need to load and extract them so that we can use them in the project.
+	if (get_ver_major() == 0) {
+		err = _load_obdb_resources();
+		if (err) {
+			ERR_FAIL_V_MSG(err, "FATAL ERROR: Could not load OBDB resources!");
 		}
 	}
 
@@ -2718,6 +2727,13 @@ void GDRESettings::_do_string_load(uint32_t i, StringLoadToken *tokens) {
 				}
 				// append the whole file just in case we missed something
 				tokens[i].strings.append(text);
+			} else if (src_ext == "nut") {
+				// find all `"[^"]+"` strings
+				Ref<RegEx> re = RegEx::create_from_string("\"([^\"]+)\"");
+				TypedArray<RegExMatch> matches = re->search_all(text);
+				for (Ref<RegExMatch> match : matches) {
+					tokens[i].strings.append(match->get_string(1));
+				}
 			} else {
 				// append the whole file; the "Partial resource strings" stage in the translation exporter will handle splitting it up
 				tokens[i].strings.append(text);
@@ -2768,6 +2784,7 @@ void GDRESettings::load_all_resource_strings() {
 	wildcards.push_back("*.xml");
 	wildcards.push_back("*.cfg");
 	wildcards.push_back("*.esc");
+	wildcards.push_back("*.nut");
 
 	Vector<String> r_files = get_file_list(wildcards);
 	if (has_loaded_dotnet_assembly()) {
@@ -3375,4 +3392,194 @@ Variant GDRESettings::get_shader_global(const String &p_name) const {
 		return Variant();
 	}
 	return shader_globals.get(p_name);
+}
+
+struct ODBDLoadTask {
+	Vector<String> paths;
+	Mutex global_lock;
+	HashSet<String> base_extensions_set;
+	ParallelFlatHashSet<String> resource_paths;
+	struct ResToSet {
+		Vector<uint8_t> data;
+		String path;
+		String new_path;
+	};
+	Vector<ResToSet> res_to_set;
+	int ver_major = 0;
+	int ver_minor = 0;
+
+	void _find_resources(const String &path, const Variant &p_variant, bool p_main, HashSet<Ref<Resource>> &external_resources, HashSet<Ref<Resource>> &resource_set) {
+		switch (p_variant.get_type()) {
+			case Variant::OBJECT: {
+				Ref<Resource> res = p_variant;
+				if (res.is_null() || !CompatFormatLoader::resource_is_resource(res, ver_major) || external_resources.has(res) || res->get_meta(SNAME("_skip_save_"), false)) {
+					return;
+				}
+				if (!p_main && !res->is_built_in()) {
+					if (res->get_path() == path) {
+						ERR_PRINT(vformat("Circular reference to resource being saved found: '%s' will be null next time it's loaded.", path));
+						return;
+					}
+					external_resources.insert(res);
+					return;
+				}
+				if (resource_set.has(res)) {
+					return;
+				}
+				resource_set.insert(res);
+				List<PropertyInfo> property_list;
+				res->get_property_list(&property_list);
+				for (const PropertyInfo &E : property_list) {
+					if (E.usage & PROPERTY_USAGE_STORAGE) {
+						Variant value = res->get(E.name);
+						_find_resources(path, value, false, external_resources, resource_set);
+					}
+				}
+
+				// COMPAT: get the missing resources too
+				Dictionary missing_resources = res->get_meta(META_MISSING_RESOURCES, Dictionary());
+				if (missing_resources.size()) {
+					LocalVector<Variant> keys = missing_resources.get_key_list();
+					for (Variant key : keys) {
+						_find_resources(path, missing_resources[key], false, external_resources, resource_set);
+					}
+				}
+
+			} break;
+
+			case Variant::ARRAY: {
+				Array varray = p_variant;
+				_find_resources(path, varray.get_typed_script(), false, external_resources, resource_set);
+				for (const Variant &v : varray) {
+					_find_resources(path, v, false, external_resources, resource_set);
+				}
+			} break;
+			case Variant::DICTIONARY: {
+				Dictionary d = p_variant;
+				_find_resources(path, d.get_typed_key_script(), false, external_resources, resource_set);
+				_find_resources(path, d.get_typed_value_script(), false, external_resources, resource_set);
+				for (const KeyValue<Variant, Variant> &kv : d) {
+					_find_resources(path, kv.key, false, external_resources, resource_set);
+					_find_resources(path, kv.value, false, external_resources, resource_set);
+				}
+			} break;
+			default: {
+			}
+		}
+	}
+	void _do_obdb_load(uint32_t i, void *p_userdata) {
+		String packed_path = paths[i];
+		Ref<Resource> packed_resource = ResourceCompatLoader::fake_load(packed_path);
+		if (packed_resource.is_valid()) {
+			HashSet<Ref<Resource>> external_resources;
+			HashSet<Ref<Resource>> resource_set;
+			_find_resources(packed_path, packed_resource, true, external_resources, resource_set);
+			for (const Ref<Resource> &resource : external_resources) {
+				if (resource_paths.emplace(resource->get_path()).second) {
+					String path = resource->get_path();
+					if (FileAccess::exists(path)) {
+						continue;
+					}
+					Ref<MissingResource> missing_resource = resource;
+					if (missing_resource.is_valid()) {
+						if (missing_resource->get_original_class() == "Texture") {
+							missing_resource->set_original_class("ImageTexture");
+						}
+					}
+					String ext = path.get_extension().to_lower();
+					String base_ext = ext;
+					if (ext.begins_with("x") && ext != "xml") {
+						base_ext = ext.substr(1);
+					}
+					String new_path = path;
+					Vector<uint8_t> data;
+					if (base_ext == "nut") {
+						String source = resource->get("script/source");
+						if (source.is_empty()) {
+							ERR_CONTINUE_MSG(source.is_empty(), vformat("Resource %s has no script source", path));
+						}
+						data = source.to_utf8_buffer();
+					} else if (base_ext == "spx") {
+						Dictionary bundled = resource->get("_bundled");
+						data = bundled.get("data", Vector<uint8_t>());
+						if (data.is_empty()) {
+							ERR_CONTINUE_MSG(data.is_empty(), vformat("Resource %s has no bundled data", path));
+						}
+					} else {
+						Ref<FileAccessBuffer> file_access = FileAccessBuffer::create();
+
+						if (!base_extensions_set.has(base_ext)) {
+							Vector<String> base_extensions = ResourceCompatLoader::get_base_extension_set_for_type(resource->get_save_class(), 1);
+							if (base_extensions.is_empty()) {
+								ERR_CONTINUE_MSG(base_extensions.is_empty(), vformat("No base extensions found for resource %s of type: %s", path, resource->get_class()));
+							}
+							new_path = path + ".converted." + base_extensions[0];
+						}
+						Ref<FileAccess> fa = file_access;
+						Error err = ResourceCompatLoader::save_custom_to_file(resource, new_path, fa, ver_major, ver_minor, 0);
+						if (err != OK) {
+							ERR_CONTINUE_MSG(err, vformat("Failed to save resource %s to file %s", path, new_path));
+						}
+						data = file_access->get_data();
+					}
+					{
+						MutexLock lock(global_lock);
+						res_to_set.push_back({ data, path, new_path });
+					}
+				}
+			}
+		}
+	}
+
+	String get_description(uint32_t i, void *p_userdata) {
+		return vformat("Loading resource: %s", paths[i]);
+	}
+};
+
+Error GDRESettings::_load_obdb_resources() {
+	// gather all the files that have `.optimized.scn` or `.optimized.res` extensions
+	ODBDLoadTask task;
+	static const Vector<String> optimized_extensions = { "*.optimized.scn", "*.optimized.res" };
+	task.paths = get_file_list(optimized_extensions);
+	if (task.paths.is_empty()) {
+		return OK;
+	}
+
+	task.ver_major = get_ver_major();
+	task.ver_minor = get_ver_minor();
+
+	List<String> base_extensions;
+	ResourceCompatLoader::get_base_extensions(&base_extensions, 1);
+	task.base_extensions_set = { "xml", "xres", "xscn" };
+	for (const String &ext : base_extensions) {
+		task.base_extensions_set.insert(ext);
+	}
+	Error err = TaskManager::get_singleton()->run_multithreaded_group_task(
+			&task,
+			&ODBDLoadTask::_do_obdb_load,
+			task.paths.ptrw(),
+			task.paths.size(),
+			&ODBDLoadTask::get_description,
+			"GDRESettings::_load_obdb_resources",
+			RTR("Loading packed OBDB resources..."),
+			false);
+	if (err != OK) {
+		return err;
+	}
+
+	for (const auto &res_to_set : task.res_to_set) {
+		if (res_to_set.path != res_to_set.new_path) {
+			GDRESettings::get_singleton()->add_remap(res_to_set.path, res_to_set.new_path);
+		}
+		GDREPackedData::get_singleton()->add_dummy_path("OBDBPackedResources", res_to_set.new_path, res_to_set.data);
+	}
+	HashSet<String> remaps = gdre::vector_to_hashset((Vector<String>)get_project_setting(v2_remap_setting, Vector<String>()));
+	for (const String &path : task.paths) {
+		if (!remaps.has(path)) {
+			String new_path = path.get_basename().get_basename() + ".xml";
+			add_remap(new_path, path);
+		}
+	}
+
+	return err;
 }
