@@ -197,10 +197,11 @@ Error PckDumper::_pck_dump_to_dir(
 	gdre::CaselessHashSet seen_paths;
 	HashSet<String> files_to_extract_set = gdre::vector_to_hashset(files_to_extract);
 	for (int i = 0; i < files.size(); i++) {
-		if (files.get(i)->is_dummy()) {
+		const auto &file = files.get(i);
+		if (file->is_dummy() && file->get_size() <= 1) {
+			// empty dummy file
 			continue;
 		}
-		const auto &file = files.get(i);
 		String path = file->get_path();
 		if (!files_to_extract_set.is_empty() && !files_to_extract_set.has(path)) {
 			continue;
