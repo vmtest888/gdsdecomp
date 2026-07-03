@@ -1380,7 +1380,7 @@ Error TextureExporter::recreate_missing_variants(const String &output_dir, Ref<I
 	// Recreates textures that were not exported in the PCK, but are still present in the import info.
 	// The purpose of this is to prevent a re-import upon load due to the md5 check failing.
 	String importer = import_infos->get_importer();
-	if (importer != "texture" && importer != "texture_2d" && import_infos->get_ver_major() != 3) {
+	if ((importer != "texture" && importer != "texture_2d") || import_infos->get_ver_major() != 3) {
 		return ERR_UNAVAILABLE;
 	}
 
