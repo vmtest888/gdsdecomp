@@ -14,6 +14,7 @@
 #include "gdre_settings.h"
 #include "packed_file_info.h"
 #include "utility/common.h"
+#include "utility/macros.h"
 
 namespace CoreBind {
 PackedFile::PackedFile(const PackedData::PackedFile &p_pf) : pf(p_pf) {}

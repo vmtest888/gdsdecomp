@@ -7,6 +7,7 @@
 #include "utility/common.h"
 #include "utility/gdre_settings.h"
 #include "utility/image_saver.h"
+#include "utility/macros.h"
 #include "utility/resource_info.h"
 
 #include "core/error/error_list.h"
