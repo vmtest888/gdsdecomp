@@ -6,8 +6,6 @@
 
 #include "bytecode/bytecode_versions.h"
 #include "bytecode/gdscript_tokenizer_compat.h"
-#include "bytecode/gdscript_v1_tokenizer_compat.h"
-#include "bytecode/gdscript_v2_tokenizer_buffer.h"
 #include "compat/file_access_encrypted_v3.h"
 #include "compat/variant_decoder_compat.h"
 #include "compat/variant_writer_compat.h"
@@ -22,7 +20,6 @@
 #include "core/io/file_access_encrypted.h"
 #include "core/io/marshalls.h"
 #include "core/object/class_db.h"
-#include "core/variant/binder_common.h"
 
 #define GDSDECOMP_FAIL_V_MSG(m_retval, m_msg) \
 	error_message = RTR(m_msg);               \

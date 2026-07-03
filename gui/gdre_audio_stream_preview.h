@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include "core/os/thread.h"
 #include "core/templates/safe_refcount.h"
 #include "scene/main/node.h"
 #include "servers/audio/audio_stream.h"

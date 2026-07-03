@@ -1,7 +1,6 @@
 #pragma once
 #include "scene/main/node.h"
 #include "scene/main/scene_tree.h"
-#include "utility/gd_parallel_queue.h"
 
 // We have a SceneTree and a regular node class that call into our singleton because of the editor; normally we would be able to
 // just use the SceneTree class, but when running in editor mode, Main::start() always sets the main loop to the base SceneTree class and

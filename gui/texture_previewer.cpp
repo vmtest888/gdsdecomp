@@ -31,6 +31,7 @@
 #include "texture_previewer.h"
 
 #include "core/object/callable_mp.h"
+#include "core/object/class_db.h"
 #include "scene/gui/aspect_ratio_container.h"
 #include "scene/gui/color_rect.h"
 #include "scene/gui/label.h"

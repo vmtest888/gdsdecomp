@@ -1,6 +1,4 @@
 #pragma once
-#include "core/object/class_db.h"
-#include "core/variant/binder_common.h"
 
 #include "gd_parallel_hashmap.h"
 #include "import_info.h"

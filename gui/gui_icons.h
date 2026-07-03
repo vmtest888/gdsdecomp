@@ -1,4 +1,5 @@
-#include "core/object/object.h"
+#pragma once
+
 #include "scene/resources/dpi_texture.h"
 
 class Control;
