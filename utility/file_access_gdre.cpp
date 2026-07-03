@@ -4,6 +4,7 @@
 
 #include "file_access_gdre.h"
 #include "core/io/file_access.h"
+#include "core/io/file_access_memory.h"
 #include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "crypto/custom_decryptor.h"
@@ -13,7 +14,6 @@
 #include "gdre_settings.h"
 #include "packed_file_info.h"
 #include "utility/common.h"
-#include "utility/file_access_buffer.h"
 
 namespace CoreBind {
 PackedFile::PackedFile(const PackedData::PackedFile &p_pf) : pf(p_pf) {}
@@ -222,17 +222,22 @@ bool DummySource::try_open_pack(const String &p_path, bool p_replace_files, uint
 }
 
 Ref<FileAccess> DummySource::get_file(const String &p_path, PackedData::PackedFile *p_file, const Vector<uint8_t> &p_decryption_key) {
-	(void)p_path;
 	(void)p_file;
 	(void)p_decryption_key;
-	Ref<FileAccessBuffer> buffer = FileAccessBuffer::create();
-	Vector<uint8_t> data = { '\0' };
-	Error err = buffer->open_custom(data);
-	if (err != OK) {
-		return nullptr;
+	String simplified_path = p_path.simplify_path().trim_prefix("res://");
+	PathMD5 pmd5(simplified_path.md5_buffer());
+	if (file_contents.has(pmd5)) {
+		Ref<FileAccessMemory> file_access_memory = Ref<FileAccessMemory>(memnew(FileAccessMemory));
+		file_access_memory->open_custom(file_contents[pmd5].ptr(), file_contents[pmd5].size());
+		return file_access_memory;
 	}
-	buffer->seek(0);
-	return buffer;
+	ERR_FAIL_V_MSG(nullptr, "File not found");
+}
+
+void DummySource::add_file_content(const String &p_path, const Vector<uint8_t> &p_file_content) {
+	String simplified_path = p_path.simplify_path().trim_prefix("res://");
+	PathMD5 pmd5(simplified_path.md5_buffer());
+	file_contents[pmd5] = p_file_content;
 }
 
 Error GDREPackedData::add_pack(const String &p_path, bool p_replace_files, uint64_t p_offset) {
@@ -354,9 +359,11 @@ void GDREPackedData::add_pack_source(PackSource *p_source) {
 	}
 }
 
-void GDREPackedData::add_dummy_path(const String &p_pkg_path, const String &p_path) {
+void GDREPackedData::add_dummy_path(const String &p_pkg_path, const String &p_path, const Vector<uint8_t> &p_data) {
 	// Dummy files must have non-zero offset to avoid being treated as erased.
-	add_path(p_pkg_path, p_path, 1, 1, MD5_EMPTY, &dummy_source, false, false, false, false);
+	const Vector<uint8_t> &data = p_data.is_empty() ? Vector<uint8_t>({ '\0' }) : p_data;
+	dummy_source.add_file_content(p_path, data);
+	add_path(p_pkg_path, p_path, 1, data.size(), MD5_EMPTY, &dummy_source, false, false, false, false);
 }
 
 uint8_t *GDREPackedData::get_file_hash(const String &p_path) {
