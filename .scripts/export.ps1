@@ -47,7 +47,7 @@ function Get-VersionInfo {
     # Try to find git command
     $git = Get-Command git -ErrorAction SilentlyContinue
     $versionInfo = "unknown"
-    
+
     if ($null -eq $git) {
         Write-Host "GDRE WARNING: cannot find git on path, unknown version will be saved in gdre_version.gen.h"
     }
@@ -61,7 +61,7 @@ function Get-VersionInfo {
             }
             else {
                 $versionInfo = $versionInfo.Trim()
-                
+
                 # git describe --exact-match --tags HEAD
                 $res = & git describe --exact-match --tags HEAD 2>$null
                 if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrEmpty($res)) {
@@ -70,9 +70,9 @@ function Get-VersionInfo {
                     $buildNum = $splits[-2]
                     # everything but the last two elements
                     $newVersionInfo = ($splits[0..($splits.Length - 3)] -join '-')
-                    
+
                     $semverRegex = '^[vV]?(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+(?<buildmetadata>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'
-                    
+
                     if ($newVersionInfo -match $semverRegex) {
                         $major = $Matches.major
                         $minor = $Matches.minor
@@ -97,7 +97,7 @@ function Get-VersionInfo {
                         $prereleaseTag = ""
                         $buildMetadata = ""
                     }
-                    
+
                     $devStuff = "dev.$buildNum+$buildInfo"
                     if ($prereleaseTag) {
                         $prereleaseNameParts = $prereleaseTag -split '\.'
@@ -138,7 +138,7 @@ function Get-VersionInfo {
     if ($versionInfo.StartsWith("v")) {
         $versionInfo = $versionInfo.Substring(1)
     }
-    
+
     return $versionInfo
 }
 
@@ -226,7 +226,7 @@ $platform = "linuxbsd"
 if ($env:OS -eq "Windows_NT") {
     $platform = "windows"
 }
-elseif ($PSVersionTable.Os.StartsWith("Darwin")) {
+elseif ($PSVersionTable.Os.StartsWith("Darwin") -or $PSVersionTable.Os.StartsWith("macOS")) {
     $platform = "macos"
 }
 
@@ -335,7 +335,7 @@ if ($export_preset -eq "Android") {
         $user_settings = Get-Content $user_settings_path
         $user_settings = $user_settings -replace 'export/android/java_sdk_path = ".*"', "export/android/java_sdk_path = ""$java_home"""
         $user_settings = $user_settings -replace 'export/android/android_sdk_path = ".*"', "export/android/android_sdk_path = ""$android_home"""
-    } else { 
+    } else {
         New-Item -ItemType File -Path $user_settings_path
         $user_settings = "[gd_resource type=""EditorSettings"" format=3]
 [resource]
