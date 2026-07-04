@@ -32,7 +32,7 @@ var DESKTOP_DIR = OS.get_system_dir(OS.SystemDir.SYSTEM_DIR_DESKTOP)
 
 var ver_info = Engine.get_version_info()
 # TODO: make this use something dynamic (GDRESettings?)
-const PCK_VERSION_DEFAULT = 2
+const PCK_VERSION_DEFAULT = 4
 var DEFAULT_VER_MAJOR = ver_info["major"]
 var DEFAULT_VER_MINOR = ver_info["minor"]
 var DEFAULT_VER_PATCH = ver_info["patch"]
