@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+import subprocess
 from SCons.Script.SConscript import SConsEnvironment
 import os
+import sys
 from typing import TYPE_CHECKING
 
 from build import gdre_icon_builder  # pyright: ignore[reportImplicitRelativeImport]
@@ -21,6 +23,7 @@ if TYPE_CHECKING:
 Import("env")
 Import("env_modules")
 
+GODOT_MAIN_SYNC_REF = "gdre-wb-f964fa714f5"
 MODULE_DIR = get_module_dir(env)
 BUILD_DIR = get_build_dir(env)
 
@@ -36,6 +39,25 @@ INCLUDE_DIRS = [
     UNSIGNED_HASH_INCLUDE_DIR,
     AXML_DEC_INCLUDE_DIR,
 ]
+
+if not env["ignore_godot_branch_check"]:
+    ROOT_GODOT_DIR: str = str(env.Dir("#").abspath)
+    try:
+        godot_branch: str = subprocess.run(
+            f"git -C {ROOT_GODOT_DIR} rev-parse --abbrev-ref HEAD", shell=True, capture_output=True, text=True
+        ).stdout.strip()
+        if godot_branch != GODOT_MAIN_SYNC_REF:
+            print(
+                f"""
+**************************************************
+Error: Godot repository is not on expected '{GODOT_MAIN_SYNC_REF}' branch, please checkout the correct branch and try again
+(set Scons option 'ignore_godot_branch_check' to true to ignore this error and build anyway)
+**************************************************
+"""
+            )
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error running git command: {e}")
 
 
 env_gdsdecomp = env_modules.Clone()

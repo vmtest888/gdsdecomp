@@ -65,4 +65,5 @@ git push nikitalita $NEW_BRANCH_NAME --set-upstream
 
 # change the branch name in .github/workflows/all_builds.yml and the README.md
 sed_in_place "s/GODOT_MAIN_SYNC_REF: .*/GODOT_MAIN_SYNC_REF: $NEW_BRANCH_NAME/" "$GDRE_PATH/.github/workflows/all_builds.yml"
+sed_in_place "s/GODOT_MAIN_SYNC_REF = .*/GODOT_MAIN_SYNC_REF = \"$NEW_BRANCH_NAME\"/" "$GDRE_PATH/SCsub"
 sed_in_place "s/ @ branch \`.*\`/ @ branch \`$NEW_BRANCH_NAME\`/" "$GDRE_PATH/README.md"
