@@ -77,6 +77,7 @@ def get_opts(platform):
     opts = [
         BoolVariable("disable_godot_mono_decomp", "Disable Godot Mono Decompilation", False),
         BoolVariable("disable_gifski", "Disable Gifski", False),
+        BoolVariable("ignore_godot_branch_check", "Ignore Godot branch check", False),
     ]
     if not (platform == "android" or platform == "macos"):
         opts.append(BoolVariable("use_static_godot_mono_decomp", "Build Godot Mono Decomp library as static", False))
