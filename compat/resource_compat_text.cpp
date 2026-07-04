@@ -3116,7 +3116,7 @@ int ResourceFormatSaverCompatText::get_ver_minor_from_format_version(int ver_for
 }
 
 Error ResourceFormatSaverCompatText::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_format, int ver_major, int ver_minor, uint32_t p_flags) {
-	ERR_FAIL_COND_V_MSG(ver_format <= 0 || ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	ERR_FAIL_COND_V_MSG(ver_format <= 0 || ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
 
 	p_flags = CompatFormatLoader::set_version_info_in_flags(p_flags, ver_format, ver_major, ver_minor);
 	return ResourceFormatSaverCompatText::save(p_resource, p_path, p_flags);

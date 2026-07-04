@@ -218,6 +218,47 @@ void ResourceCompatLoader::get_base_extensions_for_type(const String &p_type, Li
 	}
 }
 
+Vector<String> ResourceCompatLoader::get_base_extension_set_for_type(const String &p_type, int ver_major) {
+	Vector<String> extensions;
+	bool has_res = false;
+
+	if (ver_major > 0) {
+		switch (ver_major) {
+			case 1:
+			case 2:
+			case 3:
+			case 4: {
+				auto &ext_map = ver_major == 4 ? ext_to_v4_types : (ver_major == 3 ? ext_to_v3_types : ext_to_v2_types);
+				for (const auto &[ext, types] : ext_map) {
+					if (p_type.is_empty() || types.has(p_type)) {
+						if (ext == "res") {
+							has_res = true; // ensure it comes last
+						} else {
+							extensions.push_back(ext);
+						}
+					}
+				}
+			} break;
+			default:
+				ERR_FAIL_V_MSG(extensions, "Invalid version.");
+		}
+	} else {
+		List<String> base_extensions;
+		get_base_extensions_for_type(p_type, &base_extensions);
+		for (const String &ext : extensions) {
+			if (ext == "res") {
+				has_res = true;
+			} else {
+				extensions.push_back(ext);
+			}
+		}
+	}
+	if (has_res) {
+		extensions.push_back("res");
+	}
+	return extensions;
+}
+
 static inline void add_types_from_ext_to_types(const HashMap<String, HashSet<String>> &ext_to_types, const String &p_extension, HashSet<String> &unique_types) {
 	if (ext_to_types.has(p_extension)) {
 		const HashSet<String> &types = ext_to_types.get(p_extension);
@@ -545,7 +586,12 @@ String ResourceCompatLoader::resource_to_string(const String &p_path, bool p_ski
 
 	String save_path;
 	String base_ext = path.get_basename().get_basename().get_extension();
-	if (path.contains(".converted.") && (base_ext == "xml" || base_ext == "x" + path.get_extension().to_lower())) {
+	bool optimized = path.contains(".optimized.");
+	bool optimized_or_converted = optimized || path.contains(".converted.");
+	if (optimized && path.has_extension("scn")) {
+		base_ext = "xml";
+	}
+	if (optimized_or_converted && (base_ext == "xml" || base_ext == "x" + path.get_extension().to_lower())) {
 		ResourceFormatSaverXMLInstance saver;
 		save_path = path.get_basename() + ".xml";
 		err = saver.save_to_file(f, save_path, res, 0);
@@ -682,11 +728,16 @@ bool ResourceCompatLoader::is_globally_available() {
 	return globally_available;
 }
 
-Error ResourceCompatLoader::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor) {
+Error ResourceCompatLoader::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor, uint32_t p_flags) {
 	String path = GDRESettings::get_singleton()->globalize_path(p_path);
-	ERR_FAIL_COND_V_MSG(ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	ERR_FAIL_COND_V_MSG(ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
 	Error err = gdre::ensure_dir(path.get_base_dir());
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not ensure directory for " + path);
+	String ext = path.get_extension().to_lower();
+	if (ext == "xml" || ext == "xscn" || ext == "xres" || (ver_major <= 2 && ext.begins_with("x") && ext_to_v2_types.has(ext.substr(1)))) {
+		ResourceFormatSaverXML saver;
+		return saver.save_custom(p_resource, path, 0, ver_major, ver_minor, p_flags);
+	}
 	if (path.get_extension() == "tres" || path.get_extension() == "tscn") {
 		int ver_format = ResourceFormatSaverCompatText::get_default_format_version(ver_major, ver_minor);
 		ResourceFormatSaverCompatText saver;
@@ -713,6 +764,29 @@ String ResourceCompatConverter::get_resource_name(const Ref<MissingResource> &re
 		name = res->get_name();
 	}
 	return name;
+}
+
+Error ResourceCompatLoader::save_custom_to_file(const Ref<Resource> &p_resource, const String &p_path, Ref<FileAccess> &p_f, int ver_major, int ver_minor, uint32_t p_flags) {
+	String path = GDRESettings::get_singleton()->globalize_path(p_path);
+	ERR_FAIL_COND_V_MSG(ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	Error err = gdre::ensure_dir(path.get_base_dir());
+	ERR_FAIL_COND_V_MSG(err != OK, err, "Could not ensure directory for " + path);
+	String ext = path.get_extension().to_lower();
+	if (ext == "xml" || ext == "xscn" || ext == "xres" || (ver_major <= 2 && ext.begins_with("x") && ext_to_v2_types.has(ext.substr(1)))) {
+		uint32_t flags = CompatFormatLoader::set_version_info_in_flags(p_flags, 0, ver_major, ver_minor);
+		ResourceFormatSaverXMLInstance saver;
+		return saver.save_to_file(p_f, path, p_resource, flags);
+	}
+	if (path.get_extension() == "tres" || path.get_extension() == "tscn") {
+		int ver_format = ResourceFormatSaverCompatText::get_default_format_version(ver_major, ver_minor);
+		uint32_t flags = CompatFormatLoader::set_version_info_in_flags(p_flags, ver_format, ver_major, ver_minor);
+		ResourceFormatSaverCompatTextInstance saver;
+		return saver.save_to_file(p_f, path, p_resource, flags);
+	}
+	int ver_format = ResourceFormatSaverCompatBinary::get_default_format_version(ver_major, ver_minor);
+	uint32_t flags = CompatFormatLoader::set_version_info_in_flags(p_flags, ver_format, ver_major, ver_minor);
+	ResourceFormatSaverCompatBinaryInstance saver;
+	return saver.save_to_file(p_f, path, p_resource, flags);
 }
 
 void ResourceCompatLoader::_init() {

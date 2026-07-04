@@ -951,18 +951,10 @@ func recovery(  input_files:PackedStringArray,
 			print("Error: failed to clear output directory except for git")
 			return 1
 
-	if is_dir:
-		if extract_only:
-			print("Why did you open a folder to extract it??? What's wrong with you?!!?")
-			return 1
-		if output_dir.simplify_path() != input_file.simplify_path() and GDRECommon.copy_dir(input_file, output_dir) != OK:
-			print("Error: failed to copy " + input_file + " to " + output_dir)
-			return 1
-	else:
-		err = dump_files(output_dir, files, ignore_checksum_errors, skip_md5)
-		if (err != OK):
-			print("Error: failed to extract PAK file, not exporting assets")
-			return 1
+	err = dump_files(output_dir, files, ignore_checksum_errors, skip_md5)
+	if (err != OK):
+		print("Error: failed to extract PAK file, not exporting assets")
+		return 1
 	var end_time;
 	var secs_taken;
 	if (extract_only):

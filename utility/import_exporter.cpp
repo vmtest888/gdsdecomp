@@ -1580,9 +1580,9 @@ Error ImportExporter::export_imports(const String &p_out_dir, const Vector<Strin
 						output_dir,
 						{},
 						false,
-						false,
-						{ "*.uid", "*.import" },
 						true,
+						{ "*.uid", "*.import" },
+						{},
 						true,
 						true);
 				file_infos.resize_initialized(list.size());

@@ -21,9 +21,8 @@ struct RecursiveListDirTaskData {
 	const bool absolute;
 	const Vector<String> excludes;
 	const Vector<String> banned_files;
-	const bool include_hidden;
-	const bool files_first;
 	const bool exclude_dot_prefix_and_gdignore;
+	const bool files_first;
 	const bool show_progress;
 
 	struct Token {
@@ -80,7 +79,7 @@ struct RecursiveListDirTaskData {
 		Vector<String> files;
 
 		String base = absolute ? dir : "";
-		da->set_include_hidden(include_hidden);
+		da->set_include_hidden(true);
 		da->list_dir_begin();
 		String f = da->get_next();
 		while (!f.is_empty()) {
@@ -177,30 +176,19 @@ Vector<String> gdre::get_recursive_dir_list_multithread(
 		const String &dir,
 		const Vector<String> &wildcards,
 		bool absolute,
-		bool include_hidden,
-		const Vector<String> &p_exclude_filters,
-		bool files_first,
 		bool exclude_dot_prefix_and_gdignore,
+		const Vector<String> &p_exclude_filters,
+		const Vector<String> &p_banned_files,
+		bool files_first,
 		bool show_progress) {
-	Vector<String> banned_files;
-	Vector<String> exclude_filters;
-	for (auto &wc : p_exclude_filters) {
-		// if the wildcard starts with '*/' and has no '/' following it, then it is a banned file
-		if (wc.begins_with("*/") && wc.substr(2).find("/") == -1) {
-			banned_files.push_back(wc.trim_prefix("*/"));
-		} else {
-			exclude_filters.push_back(wc);
-		}
-	}
 	RecursiveListDirTaskData task_data{
 		dir,
 		wildcards,
 		absolute,
-		exclude_filters,
-		banned_files,
-		include_hidden,
-		files_first,
+		p_exclude_filters,
+		p_banned_files,
 		exclude_dot_prefix_and_gdignore,
+		files_first,
 		show_progress
 	};
 	return task_data.run();

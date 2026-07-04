@@ -5,7 +5,6 @@
 #include "core/variant/dictionary.h"
 #include "core/variant/variant.h"
 #include "scene/main/node.h"
-#include "scene/resources/packed_scene.h"
 
 class Resource;
 class FileDiffResult;

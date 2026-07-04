@@ -2333,6 +2333,12 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	report->set_error(get_translations(iinfo, default_locale, default_translation, translations, keys));
 	ERR_FAIL_COND_V_MSG(report->get_error() != OK, report, "Could not get translations");
 
+	if (iinfo->get_export_dest().has_extension("po") && translations.size() > 1) {
+		report->set_error(ERR_INVALID_DATA);
+		report->set_message("PO files must have only one associated translation file");
+		return report;
+	}
+
 	Vector<String> default_messages = default_translation->get_translated_message_list();
 	Vector<Vector<String>> translation_messages;
 	for (auto &translation : translations) {
@@ -2404,29 +2410,45 @@ Ref<ExportReport> TranslationExporter::export_resource(const String &output_dir,
 	Ref<FileAccess> f = FileAccess::open(output_path, FileAccess::WRITE, &export_err);
 	ERR_FAIL_COND_V_MSG(export_err != OK, report, "Could not open file " + output_path);
 	ERR_FAIL_COND_V_MSG(f.is_null(), report, "Could not open file " + output_path);
-	// Set UTF-8 BOM (required for opening with Excel in UTF-8 format, works with all Godot versions)
-	f->store_8(0xef);
-	f->store_8(0xbb);
-	f->store_8(0xbf);
-	f->store_string(header);
-	const String missing_key_prefix = MISSING_KEY_PREFIX;
-	for (int i = 0; i < keys.size(); i++) {
-		Vector<String> line_values;
-		line_values.push_back(keys[i]);
-		for (int j = 0; j < translation_messages.size(); j++) {
-			auto &messages = translation_messages[j];
-			if (out_of_sync_translations.has(j) && !keys[i].begins_with(missing_key_prefix)) {
-				line_values.push_back(translations[j]->get_message(keys[i]));
-			} else if (i >= messages.size()) {
-				line_values.push_back("");
-			} else {
-				line_values.push_back(messages[i]);
+	if (output_path.has_extension("po")) {
+		f->store_string("msgid \"\"\n");
+		f->store_string("msgstr \"\"\n");
+		f->store_string(vformat("\"Language: %s\\n\"\n\n", default_translation->get_locale()));
+		for (int i = 0; i < keys.size(); i++) {
+			f->store_string(vformat("msgid \"%s\"\n", keys[i]));
+			const String &message = i < translation_messages[0].size() ? translation_messages[0][i] : "";
+			Vector<String> lines = message.split("\n");
+			f->store_string(vformat("msgstr \"%s\"\n", lines[0]));
+			for (int j = 1; j < lines.size(); j++) {
+				f->store_string(vformat("\"%s\"\n", lines[j]));
 			}
+			f->store_string("\n");
 		}
-		f->store_csv_line(line_values, ",");
+	} else { // csv
+		// Set UTF-8 BOM (required for opening with Excel in UTF-8 format, works with all Godot versions)
+		f->store_8(0xef);
+		f->store_8(0xbb);
+		f->store_8(0xbf);
+		f->store_string(header);
+		const String missing_key_prefix = MISSING_KEY_PREFIX;
+		for (int i = 0; i < keys.size(); i++) {
+			Vector<String> line_values;
+			line_values.push_back(keys[i]);
+			for (int j = 0; j < translation_messages.size(); j++) {
+				auto &messages = translation_messages[j];
+				if (out_of_sync_translations.has(j) && !keys[i].begins_with(missing_key_prefix)) {
+					line_values.push_back(translations[j]->get_message(keys[i]));
+				} else if (i >= messages.size()) {
+					line_values.push_back("");
+				} else {
+					line_values.push_back(messages[i]);
+				}
+			}
+			f->store_csv_line(line_values, ",");
+		}
+		f->flush();
+		f->close();
 	}
-	f->flush();
-	f->close();
 	report->set_error(OK);
 	Dictionary extra_info;
 	extra_info["missing_keys"] = missing_keys;

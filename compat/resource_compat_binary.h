@@ -241,6 +241,8 @@ class ResourceFormatSaverCompatBinaryInstance {
 
 	static String get_local_path(const String &p_path, const Ref<Resource> &p_resource);
 
+	Error _save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
+
 public:
 	enum {
 		FORMAT_FLAG_NAMED_SCENE_IDS = 1,
@@ -253,6 +255,7 @@ public:
 	};
 	Error write_v2_import_metadata(Ref<FileAccess> f, Ref<ResourceImportMetadatav2> imd, HashMap<Ref<Resource>, int> &p_resource_map);
 	Error save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
+	Error save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags = 0);
 	Error set_uid(const String &p_path, ResourceUID::ID p_uid);
 	void write_variant(Ref<FileAccess> f, const Variant &p_property, HashMap<Ref<Resource>, int> &resource_map, HashMap<Ref<Resource>, int> &external_resources, HashMap<StringName, int> &string_map, const PropertyInfo &p_hint = PropertyInfo());
 };

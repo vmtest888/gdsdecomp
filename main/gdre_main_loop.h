@@ -1,7 +1,6 @@
 #pragma once
 #include "scene/main/node.h"
 #include "scene/main/scene_tree.h"
-#include "utility/gd_parallel_queue.h"
 
 // We have a SceneTree and a regular node class that call into our singleton because of the editor; normally we would be able to
 // just use the SceneTree class, but when running in editor mode, Main::start() always sets the main loop to the base SceneTree class and
@@ -12,10 +11,10 @@ class GDREMainLoop : public Object {
 	static GDREMainLoop *singleton;
 	static bool testing;
 
-	double last_physics_process_time;
-	double last_process_time;
-	bool processing;
-	bool running_process_calls;
+	double last_physics_process_time = 0.0;
+	double last_process_time = 0.0;
+	bool processing = false;
+	bool running_process_calls = false;
 	Mutex next_process_calls_mutex;
 	Vector<Callable> next_process_calls;
 

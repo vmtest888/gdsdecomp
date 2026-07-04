@@ -242,7 +242,7 @@ bool GDREPackedSource::_get_exe_embedded_pck_info(Ref<FileAccess> f, const Strin
 
 bool GDREPackedSource::seek_offset_from_exe(Ref<FileAccess> f, const String &p_path, uint64_t &r_pck_size, const PackedByteArray &custom_magic) {
 	EXEPCKInfo info;
-	auto ret = _get_exe_embedded_pck_info(f, p_path, info);
+	auto ret = _get_exe_embedded_pck_info(f, p_path, info, custom_magic);
 #ifdef DEBUG_ENABLED
 	if (ret) {
 		if (info.pck_section_header_pos == 0) {
@@ -472,7 +472,12 @@ bool GDREPackedSource::try_open_pack(const String &p_path, bool p_replace_files,
 		String path;
 		path.append_utf8(cs.ptr());
 		String p_file = path.get_file();
-		ERR_FAIL_COND_V_MSG(p_file.begins_with("gdre_") && p_file != "gdre_export.log", false, "Don't try to extract the GDRE pack files, just download the source from github.");
+
+		if (unlikely(p_file.begins_with("gdre_"))) {
+			if (p_file != "gdre_export.log" && p_file != "gdre_export.json") {
+				WARN_PRINT_ONCE(vformat("GDRE prefixed file found, please report this on the GitHub issue tracker: %s", p_file));
+			}
+		}
 
 		// TODO: Ask bruvzg about whether or not p_offset is needed here.
 		uint64_t ofs = file_base + f->get_64() + (version >= PACK_FORMAT_VERSION_V3 ? 0 : p_offset);

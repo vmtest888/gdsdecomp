@@ -28,7 +28,7 @@ env:
   # TODO: change this back to godotengine/godot and target master when #109685 and #109475 are merged
   GODOT_REPOSITORY: nikitalita/godot
   # Change the README too
-  GODOT_MAIN_SYNC_REF: gdre-wb-df6235838b6
+  GODOT_MAIN_SYNC_REF: gdre-wb-f964fa714f5
   SCONSFLAGS: verbose=yes warnings=all werror=no module_text_server_fb_enabled=yes minizip=yes deprecated=yes angle=yes accesskit=no
   SCONSFLAGS_TEMPLATE: disable_path_overrides=no no_editor_splash=yes module_camera_enabled=no module_mobile_vr_enabled=no module_upnp_enabled=no module_websocket_enabled=no module_csg_enabled=yes module_gridmap_enabled=yes use_static_cpp=yes builtin_freetype=yes builtin_libpng=yes builtin_zlib=yes builtin_libwebp=yes builtin_libvorbis=yes builtin_libogg=yes disable_3d=no
   SCONS_CACHE_MSVC_CONFIG: true
@@ -117,7 +117,7 @@ jobs:
             bin: ./bin/godot.linuxbsd.editor.x86_64
 
           - name: "🍎 macOS Editor"
-            os: "macos-latest"
+            os: "macos-26"
             id: macos-editor
             platform: macos
             target: editor
@@ -127,7 +127,7 @@ jobs:
             bin: ./bin/godot.macos.editor.arm64
 
           - name: "🍎 macOS Template Release"
-            os: "macos-latest"
+            os: "macos-26"
             id: macos-template
             platform: macos
             target: template_release
@@ -158,10 +158,6 @@ jobs:
         shell: bash
         run: |
           cp -R modules/gdsdecomp/.github/actions/* .github/actions/
-
-      - name: Select Xcode 16
-        if: matrix.platform == 'macos'
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
       - name: Restore Godot build cache
         uses: ./.github/actions/godot-cache-restore

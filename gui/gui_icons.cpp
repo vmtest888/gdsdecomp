@@ -1,13 +1,10 @@
 #include "gui_icons.h"
-#include "gui/gdre_icons.gen.h"
+
 #include "scene/gui/control.h"
 #include "scene/resources/dpi_texture.h"
-#include "scene/resources/image_texture.h"
 #include "scene/theme/theme_db.h"
-#ifdef MODULE_SVG_ENABLED
-#include "modules/svg/image_loader_svg.h"
 
-#endif
+#include "gui/gdre_icons.gen.h"
 
 // HashMap<float, HashMap<StringName, Ref<DPITexture>>> GDREGuiIcons::icons;
 // bool GDREGuiIcons::initialized = false;

@@ -61,6 +61,7 @@ public:
 	static bool is_globally_available();
 
 	static void get_base_extensions_for_type(const String &p_type, List<String> *p_extensions);
+	static Vector<String> get_base_extension_set_for_type(const String &p_type, int ver_major = 0);
 	static void get_base_extensions(List<String> *p_extensions, int ver_major = 0);
 	static void get_type_for_extension(const String &p_extension, List<String> *p_types, int ver_major = 0);
 
@@ -72,7 +73,8 @@ public:
 #endif
 
 	// only supports resource text and binary formats, not texture formats
-	static Error save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor);
+	static Error save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_major, int ver_minor, uint32_t p_flags = 0);
+	static Error save_custom_to_file(const Ref<Resource> &p_resource, const String &p_path, Ref<FileAccess> &p_f, int ver_major, int ver_minor, uint32_t p_flags = 0);
 };
 
 class CompatFormatLoader : public ResourceFormatLoader {

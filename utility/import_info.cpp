@@ -418,19 +418,85 @@ Vector<String> ImportInfoModern::get_dest_files() const {
 	return cf->get_value("deps", "dest_files", Vector<String>());
 }
 namespace {
-Vector<String> get_remap_paths(const Ref<ConfigFileCompat> &cf) {
+struct RemapPathSorter {
+	bool operator()(const Pair<String, Variant> &a, const Pair<String, Variant> &b) const {
+		String feature = a.first.get_slicec('.', 1);
+		return a.first < b.first;
+	}
+};
+
+void _insert_remap_paths(const String &key, const String &value, int &decomp_paths_found, Vector<String> &remap_paths, Vector<String> &candidates) {
+	if (key.begins_with("path.")) {
+		String feature = key.get_slicec('.', 1);
+		if (OS::get_singleton()->has_feature(feature)) {
+			remap_paths.push_back(value);
+		} else if (Image::can_decompress(feature)) { // When loading, check for decompressable formats and use first one found if nothing else is supported.
+			candidates.insert(decomp_paths_found, value);
+			decomp_paths_found++;
+		} else {
+			candidates.push_back(value);
+		}
+	} else if (key == "path") {
+		remap_paths.push_back(value);
+	}
+}
+
+Pair<String, Vector<String>> get_remap_paths_from_cf(const Ref<ConfigFileCompat> &cf) {
 	Vector<String> remap_paths;
-	Vector<String> remap_keys = cf->get_section_keys("remap");
+	Vector<String> candidates;
+	Vector<String> ret;
+	int decomp_paths_found = 0;
+	Vector<Pair<String, Variant>> remap_keys = cf->get_section_keys_with_values_beginning_with("remap", "path");
+	if (remap_keys.is_empty()) {
+		return {};
+	} else if (remap_keys.size() == 1) {
+		return { remap_keys[0].second.operator String(), { remap_keys[0].second.operator String() } };
+	}
 	// iterate over keys in remap section
-	for (int64_t i = 0; i < remap_keys.size(); i++) {
-		// if we find a path key, we have a match
-		if (remap_keys[i].begins_with("path.") || remap_keys[i] == "path") {
-			String try_path = cf->get_value("remap", remap_keys[i], "");
-			remap_paths.push_back(try_path);
+	for (auto &E : remap_keys) {
+		ret.push_back(E.second.operator String());
+		_insert_remap_paths(E.first, E.second.operator String(), decomp_paths_found, remap_paths, candidates);
+	}
+	remap_paths.append_array(candidates);
+	for (auto &E : remap_paths) {
+		if (FileAccess::exists(E)) {
+			return { E, ret };
 		}
 	}
+	return { remap_keys[0].second.operator String(), ret };
+}
+
+Vector<String> _parse_remap_paths_from_import_file(const Ref<FileAccess> &p_f) {
+	Vector<String> remap_paths;
+	Error err;
+
+	VariantParser::StreamFile stream;
+	stream.f = p_f;
+	String assign, error_text;
+	Variant value;
+	VariantParser::Tag next_tag;
+	int lines = 0;
+	int decomp_paths_found = 0;
+	Vector<String> candidates;
+	while (true) {
+		assign = Variant();
+		next_tag.fields.clear();
+		next_tag.name = String();
+
+		err = VariantParser::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
+		if (err != OK) {
+			break;
+		}
+		if (!assign.is_empty()) {
+			_insert_remap_paths(assign, value, decomp_paths_found, remap_paths, candidates);
+		} else if (next_tag.name != "remap") {
+			break;
+		}
+	}
+	remap_paths.append_array(candidates);
 	return remap_paths;
 }
+
 Array vec_to_array(const Vector<String> &vec) {
 	Array arr;
 	for (int64_t i = 0; i < vec.size(); i++) {
@@ -479,11 +545,11 @@ void ImportInfoModern::set_metadata_prop(Dictionary r_dict) {
 	dirty = true;
 }
 
-Variant ImportInfoModern::get_param(const String &p_key) const {
+Variant ImportInfoModern::get_param(const String &p_key, const Variant &p_default) const {
 	if (!cf->has_section_key("params", p_key)) {
-		return Variant();
+		return p_default;
 	}
-	return cf->get_value("params", p_key);
+	return cf->get_value("params", p_key, p_default);
 }
 
 void ImportInfoModern::set_param(const String &p_key, const Variant &p_val) {
@@ -496,11 +562,11 @@ bool ImportInfoModern::has_param(const String &p_key) const {
 	return cf->has_section_key("params", p_key);
 }
 
-Variant ImportInfoModern::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfoModern::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (!cf->has_section_key(p_section, p_prop)) {
-		return Variant();
+		return p_default;
 	}
-	return cf->get_value(p_section, p_prop);
+	return cf->get_value(p_section, p_prop, p_default);
 }
 
 void ImportInfoModern::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
@@ -553,7 +619,10 @@ Error ImportInfoModern::_load(const String &p_path) {
 			cf->set_value("deps", "dest_files", vec_to_array({ preferred_import_path }));
 		} else {
 			// this is a multi-path import, get all the "path.*" key values
-			dest_files = get_remap_paths(cf);
+			auto [p, d] = get_remap_paths_from_cf(cf);
+			preferred_import_path = p;
+			dest_files = d;
+
 			// No path values at all; may be a translation file
 			if (dest_files.is_empty()) {
 				String importer = cf->get_value("remap", "importer", "");
@@ -608,20 +677,20 @@ Error ImportInfoModern::_load(const String &p_path) {
 	if (preferred_import_path.is_empty()) {
 		//check destination files
 		if (dest_files.size() == 0) {
-			dest_files = get_remap_paths(cf);
-			// Reverse the order; we want to get the s3tc textures first if they exist.
-			dest_files.reverse();
+			auto [p, d] = get_remap_paths_from_cf(cf);
+			preferred_import_path = p;
+			dest_files = d;
 		}
 		if (dest_files.size() == 0) {
 			dest_files = get_dest_files();
-		}
-		ERR_FAIL_COND_V_MSG(dest_files.size() == 0, ERR_FILE_CORRUPT, p_path + ": no destination files found in import data");
-		for (int64_t i = 0; i < dest_files.size(); i++) {
-			if (FileAccess::exists(dest_files[i])) {
-				preferred_import_path = dest_files[i];
-				break;
+			for (int64_t i = 0; i < dest_files.size(); i++) {
+				if (FileAccess::exists(dest_files[i])) {
+					preferred_import_path = dest_files[i];
+					break;
+				}
 			}
 		}
+		ERR_FAIL_COND_V_MSG(dest_files.size() == 0, ERR_FILE_CORRUPT, p_path + ": no destination files found in import data");
 		if (preferred_import_path.is_empty()) {
 			// just set it to the first one
 			preferred_import_path = dest_files[0];
@@ -642,6 +711,28 @@ Error ImportInfoModern::_load(const String &p_path) {
 	}
 
 	return OK;
+}
+
+String ImportInfoModern::get_remap_path_from_file(const String &p_path) {
+	if (FileAccess::exists(p_path)) {
+		Ref<FileAccess> f = FileAccess::open(p_path + ".import", FileAccess::READ);
+		if (f.is_null()) {
+			return "";
+		}
+		Vector<String> remap_paths = _parse_remap_paths_from_import_file(f);
+		if (remap_paths.is_empty()) {
+			return "";
+		} else if (remap_paths.size() == 1) {
+			return remap_paths[0];
+		}
+		for (int i = 0; i < remap_paths.size(); i++) {
+			if (FileAccess::exists(remap_paths[i])) {
+				return remap_paths[i];
+			}
+		}
+		return remap_paths[0];
+	}
+	return "";
 }
 
 Error ImportInfoDummy::_load(const String &p_path) {
@@ -697,6 +788,35 @@ Ref<ImportInfo> ImportInfoDummy::create_dummy(const String &p_path) {
 		return Ref<ImportInfo>();
 	}
 	return iinfo;
+}
+
+String ImportInfoRemap::get_remap_path_from_file(const String &p_path) {
+	Error err;
+	Ref<FileAccess> f = FileAccess::open(p_path, FileAccess::READ, &err);
+	if (f.is_valid()) {
+		VariantParser::StreamFile stream;
+		stream.f = f;
+		String assign, error_text;
+		Variant value;
+		VariantParser::Tag next_tag;
+		int lines = 0;
+		while (true) {
+			assign.clear();
+			next_tag.fields.clear();
+			next_tag.name.clear();
+			err = VariantParserCompat::parse_tag_assign_eof(&stream, lines, error_text, next_tag, assign, value, nullptr, true);
+			if (err) {
+				break;
+			}
+
+			if (assign == "path") {
+				return value;
+			} else if (next_tag.name != "remap") {
+				break;
+			}
+		}
+	}
+	return "";
 }
 
 Error ImportInfoRemap::_load(const String &p_path) {
@@ -808,7 +928,7 @@ Error ImportInfov2::_load(const String &p_path) {
 		auto_converted_export = true;
 		source_file = source_file.is_empty() ? p_path.get_basename().trim_suffix(".converted") + ".gd" : source_file;
 		importer = "script_bytecode";
-	} else if (source_file.is_empty() && !p_path.contains(".converted.")) {
+	} else if (source_file.is_empty() && !p_path.contains(".converted.") && !p_path.contains(".optimized.")) {
 		String base_dir = "res://.assets";
 		String new_ext = get_new_ext(old_ext);
 		if (type == "AtlasTexture") {
@@ -823,9 +943,23 @@ Error ImportInfov2::_load(const String &p_path) {
 			// if this doesn't match "filename.ext.converted.newext"
 			String base = spl[0];
 			String ext = spl.size() != 4 ? get_new_ext(old_ext) : spl[1];
+			if (p_path.contains(".optimized.") && spl.size() != 4 && old_ext == "scn") {
+				ext = "xml";
+			}
 			source_file = p_path.get_base_dir().path_join(base + "." + ext);
 		}
-		if (!res_info->get_type().to_lower().contains("texture") && !res_info->get_type().to_lower().contains("sample")) {
+		String new_ext = source_file.get_extension().to_lower();
+		String type = res_info->get_type().to_lower();
+		static const HashSet<String> autoconverted_extensions = {
+			"xml",
+			"xres",
+			"xscn",
+			"tscn",
+			"tres",
+		};
+		if (new_ext == "po") {
+			importer = "translation";
+		} else if (autoconverted_extensions.has(new_ext) || (new_ext.begins_with("x") && (new_ext.length() == 4 || new_ext == "xxl" || new_ext == "xgt"))) {
 			importer = "autoconverted";
 		}
 	}
@@ -943,8 +1077,8 @@ void ImportInfov2::set_additional_sources(const Vector<String> &p_add_sources) {
 	dirty = true;
 }
 
-Variant ImportInfov2::get_param(const String &p_key) const {
-	return v2metadata->get_option(p_key);
+Variant ImportInfov2::get_param(const String &p_key, const Variant &p_default) const {
+	return v2metadata->get_option(p_key, p_default);
 }
 
 void ImportInfov2::set_param(const String &p_key, const Variant &p_val) {
@@ -956,12 +1090,12 @@ bool ImportInfov2::has_param(const String &p_key) const {
 	return v2metadata->has_option(p_key);
 }
 
-Variant ImportInfov2::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfov2::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (p_section == "params" || p_section == "options") {
-		return v2metadata->get_option(p_prop);
+		return v2metadata->get_option(p_prop, p_default);
 	}
 	//TODO: others?
-	return Variant();
+	return p_default;
 }
 
 void ImportInfov2::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {
@@ -1194,11 +1328,11 @@ void ImportInfo::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_metadata_prop", "metadata_prop"), &ImportInfo::set_metadata_prop);
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "metadata_prop"), "set_metadata_prop", "get_metadata_prop");
 
-	ClassDB::bind_method(D_METHOD("get_param", "key"), &ImportInfo::get_param);
+	ClassDB::bind_method(D_METHOD("get_param", "key", "default"), &ImportInfo::get_param, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("set_param", "key", "value"), &ImportInfo::set_param);
 	ClassDB::bind_method(D_METHOD("has_param", "key"), &ImportInfo::has_param);
 
-	ClassDB::bind_method(D_METHOD("get_iinfo_val", "p_section", "p_prop"), &ImportInfo::get_iinfo_val);
+	ClassDB::bind_method(D_METHOD("get_iinfo_val", "p_section", "p_prop", "p_default"), &ImportInfo::get_iinfo_val, DEFVAL(Variant()));
 	ClassDB::bind_method(D_METHOD("set_iinfo_val", "p_section", "p_prop", "p_val"), &ImportInfo::set_iinfo_val);
 
 	ClassDB::bind_method(D_METHOD("get_params"), &ImportInfo::get_params);
@@ -1473,13 +1607,13 @@ String ImportInfoGDExt::get_compatibility_maximum() const {
 // virtual Variant get_iinfo_val(const String &p_section, const String &p_prop) const override;
 // virtual void set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) override;
 
-Variant ImportInfoGDExt::get_iinfo_val(const String &p_section, const String &p_prop) const {
+Variant ImportInfoGDExt::get_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_default) const {
 	if (cf->has_section(p_section)) {
 		if (cf->has_section_key(p_section, p_prop)) {
-			return cf->get_value(p_section, p_prop, "");
+			return cf->get_value(p_section, p_prop, p_default);
 		}
 	}
-	return Variant();
+	return p_default;
 }
 
 void ImportInfoGDExt::set_iinfo_val(const String &p_section, const String &p_prop, const Variant &p_val) {

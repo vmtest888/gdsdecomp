@@ -7,6 +7,7 @@
 #include "utility/common.h"
 #include "utility/gdre_settings.h"
 #include "utility/image_saver.h"
+#include "utility/macros.h"
 #include "utility/resource_info.h"
 
 #include "core/error/error_list.h"
@@ -773,6 +774,10 @@ bool ResourceConverterTexture2D::handles_type(const String &p_type, int ver_majo
 Ref<Resource> ResourceConverterTexture2D::convert(const Ref<MissingResource> &res, ResourceInfo::LoadType p_type, int ver_major, Error *r_error) {
 	String name;
 	Ref<Resource> texture;
+	if (const Ref<Resource> img = res->get("image"); img.is_valid()) {
+		ImageTextureConverterCompat converter;
+		return converter.convert(res, p_type, ver_major, r_error);
+	}
 
 	if (p_type == ResourceInfo::LoadType::NON_GLOBAL_LOAD) {
 		return res;
@@ -1175,7 +1180,7 @@ Ref<Resource> ImageTextureConverterCompat::convert(const Ref<MissingResource> &r
 		}
 		return img;
 	};
-	ERR_FAIL_COND_V_MSG(type != "ImageTexture", res, "Unsupported type: " + type);
+	ERR_FAIL_COND_V_MSG(type != "ImageTexture" && type != "Texture", res, "Unsupported type: " + type);
 	name = get_resource_name(res, ver_major);
 	image = convert_image(res->get("image"));
 	if (image.is_null()) {

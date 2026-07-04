@@ -2117,21 +2117,20 @@ void ResourceFormatSaverCompatBinaryInstance::write_variant(Ref<FileAccess> f, c
 		} break;
 		case Variant::OBJECT: {
 			// This will only be triggered on godot 2.x, where the image variant is loaded as an image object vs. a resource
-			if (ver_format <= 1) {
-				Ref<Resource> resp = p_property;
-				if (resp->is_class("Image")) {
+			Ref<Resource> res = p_property;
+			if (ver_format <= 1 && res.is_valid()) {
+				if (res->is_class("Image")) {
 					f->store_32(VARIANT_IMAGE);
 					// storing lossless compressed by default
 					ImageParserV2::write_image_v2_to_bin(f, p_property, true);
 					break;
-				} else if (resp->is_class("InputEvent")) {
+				} else if (res->is_class("InputEvent")) {
 					// these should never be saved to binary; just store the type
 					f->store_32(VARIANT_INPUT_EVENT);
 					break;
 				}
 			}
 			f->store_32(VARIANT_OBJECT);
-			Ref<Resource> res = p_property;
 			if (res.is_null() || res->get_meta(SNAME("_skip_save_"), false)) {
 				f->store_32(OBJECT_EMPTY);
 				return; // Don't save it.
@@ -2437,15 +2436,11 @@ static String _resource_get_class(Ref<Resource> p_resource) {
 
 /* this is really only appropriate for saving fake-loaded resources right now; don't use it to save anything else*/
 Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
-	// Resource::seed_scene_unique_id(p_path.hash());
-	// get metadata from the resource
-
 	Error err;
 
 	path = get_local_path(p_path, p_resource);
 
 	set_save_settings(p_resource, p_flags);
-	ResourceUID::ID uid = res_uid;
 
 	Ref<FileAccess> f;
 	using_compression = using_compression || p_flags & ResourceSaver::FLAG_COMPRESS;
@@ -2464,6 +2459,21 @@ Error ResourceFormatSaverCompatBinaryInstance::save(const String &p_path, const 
 	}
 
 	ERR_FAIL_COND_V_MSG(err != OK, err, "Cannot create file '" + p_path + "'.");
+	return save_to_file(f, p_path, p_resource, p_flags);
+}
+
+Error ResourceFormatSaverCompatBinaryInstance::save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
+	path = get_local_path(p_path, p_resource);
+
+	set_save_settings(p_resource, p_flags);
+	return _save_to_file(p_f, p_path, p_resource, p_flags);
+}
+
+Error ResourceFormatSaverCompatBinaryInstance::_save_to_file(const Ref<FileAccess> &p_f, const String &p_path, const Ref<Resource> &p_resource, uint32_t p_flags) {
+	// Resource::seed_scene_unique_id(p_path.hash());
+
+	Ref<FileAccess> f = p_f;
+	ResourceUID::ID uid = res_uid;
 
 	if (using_real_t_double) {
 		f->real_is_double = true;
@@ -3525,9 +3535,6 @@ Error ResourceFormatSaverCompatBinaryInstance::set_save_settings(const Ref<Resou
 			ver_major = compat->ver_major;
 			ver_minor = compat->ver_minor;
 		}
-		if (ver_major == 0) {
-			WARN_PRINT("Resource has a major version of 0, this is not supported.");
-		}
 		String format = compat->resource_format;
 		script_class = compat->script_class;
 		using_script_class = compat->using_script_class();
@@ -3643,7 +3650,7 @@ int ResourceFormatSaverCompatBinary::get_ver_minor_from_format_version(int ver_f
 }
 
 Error ResourceFormatSaverCompatBinary::save_custom(const Ref<Resource> &p_resource, const String &p_path, int ver_format, int ver_major, int ver_minor, uint32_t p_flags) {
-	ERR_FAIL_COND_V_MSG(ver_format <= 0 || ver_major <= 0, ERR_INVALID_PARAMETER, "Invalid version info");
+	ERR_FAIL_COND_V_MSG(ver_format < 0 || ver_major < 0, ERR_INVALID_PARAMETER, "Invalid version info");
 
 	p_flags = CompatFormatLoader::set_version_info_in_flags(p_flags, ver_format, ver_major, ver_minor);
 	return ResourceFormatSaverCompatBinary::save(p_resource, p_path, p_flags);

@@ -1022,26 +1022,17 @@ Error TextureExporter::_convert_svg(const String &p_path, const String &dest_pat
 
 Error get_extant_texture_path(Ref<ImportInfo> iinfo, String &path) {
 	path = iinfo->get_path();
-	int ver_major = iinfo->get_ver_major();
-	int ver_minor = iinfo->get_ver_minor();
 
-	// Prefer s3tc textures over other formats for v3 (the etc2 compressor was vastly inferior to s3tc in v3)
-	if (ver_major <= 3) {
-		String format_type = path.get_basename().get_extension();
-		if (format_type != "s3tc") {
-			PackedStringArray dest_files = iinfo->get_dest_files();
-			String new_path = path.get_basename() + ".s3tc" + path.get_extension();
-			if (dest_files.has(new_path) && FileAccess::exists(new_path)) {
+	if (iinfo->get_dest_files().size() > 1 && iinfo->get_ver_major() >= 3) {
+		// Prefer s3tc textures over other formats for v3 (the etc2 compressor was vastly inferior to s3tc in v3, and v3 astc is SCU-only and lower-quality than s3tc)
+		static const Vector<String> preferred_formats_v3 = { "s3tc", "etc2", "atsc", "s3tc-low", "nx-low", "atsc-low" };
+		static const Vector<String> preferred_formats_v4 = { "bptc", "astc", "s3tc", "etc2" };
+		const Vector<String> &preferred_formats = iinfo->get_ver_major() <= 3 ? preferred_formats_v3 : preferred_formats_v4;
+		for (int i = 0; i < preferred_formats_v3.size(); i++) {
+			String new_path = iinfo->get_iinfo_val("remap", "path." + preferred_formats[i], String());
+			if (!new_path.is_empty() && FileAccess::exists(new_path)) {
 				path = new_path;
 				return OK;
-			}
-			Vector<String> preferred_formats = { "s3tc", "etc2", "atsc", "s3tc-low", "nx-low", "atsc-low" };
-			for (int i = 0; i < preferred_formats.size(); i++) {
-				Variant new_path = iinfo->get_iinfo_val("remap", "path." + preferred_formats[i]);
-				if (new_path.get_type() == Variant::STRING && !new_path.operator String().is_empty() && FileAccess::exists(new_path.operator String())) {
-					path = new_path;
-					return OK;
-				}
 			}
 		}
 	}
@@ -1380,7 +1371,7 @@ Error TextureExporter::recreate_missing_variants(const String &output_dir, Ref<I
 	// Recreates textures that were not exported in the PCK, but are still present in the import info.
 	// The purpose of this is to prevent a re-import upon load due to the md5 check failing.
 	String importer = import_infos->get_importer();
-	if (importer != "texture" && importer != "texture_2d" && import_infos->get_ver_major() != 3) {
+	if ((importer != "texture" && importer != "texture_2d") || import_infos->get_ver_major() != 3) {
 		return ERR_UNAVAILABLE;
 	}
 

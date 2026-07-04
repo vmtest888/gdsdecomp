@@ -90,7 +90,8 @@ const char *v3_format_identifiers[V3Image::FORMAT_MAX] = {
 	"ETC2_RG11S",
 	"ETC2_RGB8",
 	"ETC2_RGBA8",
-	"ETC2_RGB8A1"
+	"ETC2_RGB8A1",
+	"ASTC_8x8",
 };
 
 const char *v3_format_names[V3Image::FORMAT_MAX] = {
@@ -131,6 +132,7 @@ const char *v3_format_names[V3Image::FORMAT_MAX] = {
 	"ETC2_RGB8",
 	"ETC2_RGBA8",
 	"ETC2_RGB8A1",
+	"ASTC_8x8",
 };
 
 const char *v4_format_identifiers[Image::FORMAT_MAX] = {

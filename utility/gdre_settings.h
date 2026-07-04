@@ -1,6 +1,4 @@
 #pragma once
-#include "core/object/class_db.h"
-#include "core/variant/binder_common.h"
 
 #include "gd_parallel_hashmap.h"
 #include "import_info.h"
@@ -53,7 +51,7 @@ private:
 	Ref<ProjectInfo> current_project;
 	Ref<GodotVer> version_override;
 	GDRELogger *logger;
-	Array import_files;
+	HashMap<String, Ref<ImportInfo>> import_files;
 	HashMap<String, Ref<ImportInfoRemap>> remap_iinfo;
 	String gdre_resource_path = "";
 	String v2_remap_setting = "remap/all";
@@ -175,6 +173,8 @@ private:
 	void _detect_csharp();
 
 	void _get_app_version();
+
+	Error _load_obdb_resources();
 
 protected:
 	static void _bind_methods();
