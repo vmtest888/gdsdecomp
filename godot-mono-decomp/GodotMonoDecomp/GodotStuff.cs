@@ -599,48 +599,144 @@ public static class GodotStuff
 			}
 		}
 
-		string GetPathFromOriginalFiles(string file_path)
+		string StripLeadingSortablePrefix(string fileStem)
 		{
-			// otherwise, try to find it in the original directory files
-			string scriptPath = "";
-			// empty vector of strings
+			int index = 0;
+			while (index < fileStem.Length && char.IsDigit(fileStem[index]))
+			{
+				index++;
+			}
+			if (index > 0 && index < fileStem.Length && fileStem[index] == '_')
+			{
+				return fileStem[(index + 1)..];
+			}
+			return fileStem;
+		}
+
+		bool IsOriginalFileNameVariant(string originalFilePath, string generatedFilePath)
+		{
+			var originalFileName = Path.GetFileName(originalFilePath);
+			var generatedFileName = Path.GetFileName(generatedFilePath);
+			if (!Path.GetExtension(originalFileName).Equals(Path.GetExtension(generatedFileName), StringComparison.OrdinalIgnoreCase))
+			{
+				return false;
+			}
+
+			var originalStem = StripLeadingSortablePrefix(Path.GetFileNameWithoutExtension(originalFileName));
+			var generatedStem = Path.GetFileNameWithoutExtension(generatedFileName);
+			return originalStem.Equals(generatedStem, StringComparison.OrdinalIgnoreCase) ||
+			       originalStem.EndsWith("." + generatedStem, StringComparison.OrdinalIgnoreCase);
+		}
+
+		int GetCommonPathSuffixScore(string originalFilePath, string generatedFilePath)
+		{
+			var originalParts = _NormalizePath(originalFilePath).Split('/', StringSplitOptions.RemoveEmptyEntries);
+			var generatedParts = _NormalizePath(generatedFilePath).Split('/', StringSplitOptions.RemoveEmptyEntries);
+			int score = 0;
+			int originalIndex = originalParts.Length - 1;
+			int generatedIndex = generatedParts.Length - 1;
+			while (originalIndex >= 0 && generatedIndex >= 0 && originalParts[originalIndex].Equals(generatedParts[generatedIndex], StringComparison.OrdinalIgnoreCase))
+			{
+				score++;
+				originalIndex--;
+				generatedIndex--;
+			}
+			return score;
+		}
+
+		string PickUniqueOriginalPath(List<string> possibles, string file_path)
+		{
+			if (possibles.Count == 0)
+			{
+				return "";
+			}
+			if (possibles.Count == 1)
+			{
+				return possibles[0];
+			}
+
+			var exactPathMatches = possibles.Where(f => f.EndsWith(file_path, StringComparison.OrdinalIgnoreCase)).ToList();
+			if (exactPathMatches.Count == 1)
+			{
+				return exactPathMatches[0];
+			}
+			if (exactPathMatches.Count > 1)
+			{
+				possibles = exactPathMatches;
+			}
+
+			var fileDir = _NormalizePath(Path.GetDirectoryName(file_path) ?? "");
+			var sameDirMatches = possibles.Where(f => _NormalizePath(Path.GetDirectoryName(f) ?? "").Equals(fileDir, StringComparison.OrdinalIgnoreCase)).ToList();
+			if (sameDirMatches.Count == 1)
+			{
+				return sameDirMatches[0];
+			}
+			if (sameDirMatches.Count > 1)
+			{
+				possibles = sameDirMatches;
+			}
+
+			var suffixMatches = possibles
+				.Select(f => new { Path = f, Score = GetCommonPathSuffixScore(f, file_path) })
+				.Where(match => match.Score > 1)
+				.OrderByDescending(match => match.Score)
+				.ToList();
+			if (suffixMatches.Count > 0 && suffixMatches.Count(match => match.Score == suffixMatches[0].Score) == 1)
+			{
+				return suffixMatches[0].Path;
+			}
+
+			return possibles.Count > 1 ? "<multiple>" : "";
+		}
+
+		List<string> GetOriginalPathCandidates(string file_path)
+		{
+			var fileName = Path.GetFileName(file_path);
 			var possibles = filesInOriginal.Where(f =>
-					Path.GetFileName(f) == Path.GetFileName(file_path)
+					Path.GetFileName(f).Equals(fileName, StringComparison.Ordinal)
 					&& !IsInExcludedSubdir(f)
 				)
 				.ToList();
-
-			if (possibles.Count == 0)
+			if (possibles.Count > 0)
 			{
-				possibles = filesInOriginal.Where(f =>
-					Path.GetFileName(f).ToLower() == Path.GetFileName(file_path).ToLower()
-					&& !IsInExcludedSubdir(f)
-				).ToList();
+				return possibles;
 			}
 
-			if (possibles.Count == 1)
+			possibles = filesInOriginal.Where(f =>
+				Path.GetFileName(f).Equals(fileName, StringComparison.OrdinalIgnoreCase)
+				&& !IsInExcludedSubdir(f)
+			).ToList();
+			if (possibles.Count > 0)
 			{
-				scriptPath = possibles[0];
+				return possibles;
 			}
-			else if (possibles.Count > 1)
+
+			return filesInOriginal.Where(f =>
+				IsOriginalFileNameVariant(f, file_path)
+				&& !IsInExcludedSubdir(f)
+			).ToList();
+		}
+
+		string PickUniqueNamespaceDirectoryCandidate(List<string> possibles, HashSet<string> directories)
+		{
+			if (possibles.Count <= 1 || directories.Count == 0)
 			{
-				possibles = possibles.Where(f => f.EndsWith(file_path, StringComparison.OrdinalIgnoreCase)).ToList();
-				if (possibles.Count == 1)
-				{
-					scriptPath = possibles[0];
-				}
+				return "";
 			}
-			if (string.IsNullOrEmpty(scriptPath) && possibles.Count > 1){
-				return "<multiple>";
-			}
-			return scriptPath;
+			var normalizedDirectories = new HashSet<string>(directories.Select(_NormalizePath), StringComparer.OrdinalIgnoreCase);
+			var namespaceDirMatches = possibles.Where(f => normalizedDirectories.Contains(_NormalizePath(Path.GetDirectoryName(f) ?? ""))).ToList();
+			return namespaceDirMatches.Count == 1 ? namespaceDirMatches[0] : "";
+		}
+
+		string GetPathFromOriginalFiles(string file_path)
+		{
+			return PickUniqueOriginalPath(GetOriginalPathCandidates(file_path), file_path);
 		}
 
 		var potentialMap = new Dictionary<string, List<TypeDefinitionHandle>>();
 
 
 		var processAgainAgain = new HashSet<TypeDefinitionHandle>();
-		var dupes = new HashSet<TypeDefinitionHandle>();
 
 		foreach (var h in processAgain)
 		{
@@ -654,14 +750,7 @@ public static class GodotStuff
 				}
 				potentialMap[real_path].Add(h);
 			} else {
-				if (real_path == "<multiple>" && !dupes.Contains(h))
-				{
-					dupes.Add(h);
-				}
-				else
-				{
-					processAgainAgain.Add(h);
-				}
+				processAgainAgain.Add(h);
 			}
 		}
 
@@ -699,10 +788,11 @@ public static class GodotStuff
 			var type = metadata.GetTypeDefinition(h);
 			var ns = metadata.GetString(type.Namespace);
 			var auto_path = GetAutoFileNameForHandle(h);
+			var originalPathCandidates = GetOriginalPathCandidates(auto_path);
 			string? p = null;
 			var namespaceParts = ns.Split('.');
 			var parentNamespace = ns.Contains('.') ? string.Join('.', namespaceParts.Take(namespaceParts.Length - 1)) : "";
-			if (ns != "" && ns != null)
+			if (!string.IsNullOrEmpty(ns))
 			{
 				// pop off the first part of the path, if necessary
 				var fileStem = Common.RemoveNamespacePartOfPath(auto_path, ns);
@@ -711,8 +801,13 @@ public static class GodotStuff
 					fileStem = Path.GetFileName(auto_path);
 				}
 				var directories = GetNamespaceDirectories(ns).Where(d => !string.IsNullOrEmpty(d) && !IsInExcludedSubdir(d)).ToHashSet();
+				var namespaceCandidate = PickUniqueNamespaceDirectoryCandidate(originalPathCandidates, directories);
+				if (!string.IsNullOrEmpty(namespaceCandidate))
+				{
+					p = namespaceCandidate;
+				}
 
-				if (directories.Count == 1)
+				if (string.IsNullOrEmpty(p) && directories.Count == 1)
 				{
 					p = _PathCombine(directories.First(), fileStem);
 				}
@@ -727,9 +822,14 @@ public static class GodotStuff
 					}
 					if (!string.IsNullOrEmpty(parentNamespace)){
 						var parentDirectories = GetNamespaceDirectories(parentNamespace).Where(d => !string.IsNullOrEmpty(d) && !IsInExcludedSubdir(d)).ToHashSet();
+						namespaceCandidate = PickUniqueNamespaceDirectoryCandidate(originalPathCandidates, parentDirectories);
 						var child = string.Join('/', namespaceParts.TakeLast(i));
 						fileStem = _PathCombine(child, Path.GetFileName(auto_path));
-						if (parentDirectories.Count == 1)
+						if (!string.IsNullOrEmpty(namespaceCandidate))
+						{
+							p = namespaceCandidate;
+						}
+						else if (parentDirectories.Count == 1)
 						{
 							p = _PathCombine(parentDirectories.First(), fileStem);
 						}
@@ -756,23 +856,6 @@ public static class GodotStuff
 			}
 			p = _NormalizePath(p);
 			PlaceHandleAtPath(p, h);
-		}
-
-		foreach (var h in dupes)
-		{
-			var auto_path = GetAutoFileNameForHandle(h);
-			var scriptPath = GetPathFromOriginalFiles(auto_path);
-
-			if (scriptPath == "" || scriptPath == "<multiple>")
-			{
-				scriptPath = auto_path;
-			}
-			scriptPath = _NormalizePath(scriptPath);
-			if (IsInExcludedSubdir(scriptPath))
-			{
-				scriptPath = _PathCombine(default_dir, scriptPath);
-			}
-			PlaceHandleAtPath(scriptPath, h);
 		}
 		var caselessDict = new Dictionary<string, List<TypeDefinitionHandle>>(StringComparer.OrdinalIgnoreCase);
 		foreach (var pair in fileMap)
